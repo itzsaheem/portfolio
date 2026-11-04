@@ -1,0 +1,137 @@
+@font-face {
+  font-family: 'Charles Rosie';
+  src: url('/fonts/CharlesRosie.woff2') format('woff2'),
+       url('/fonts/CharlesRosie.otf') format('opentype');
+  font-weight: 400 900;
+  font-style: normal;
+  font-display: block;
+}
+
+@font-face {
+  font-family: 'Charles Rosie Regular';
+  src: url('/fonts/CharlesRosie.woff2') format('woff2'),
+       url('/fonts/CharlesRosie.otf') format('opentype');
+  font-weight: 400 900;
+  font-style: normal;
+  font-display: block;
+}
+
+@font-face {
+  font-family: 'Orange Avenue';
+  src: url('/fonts/OrangeAvenueDemoRegular.otf') format('opentype');
+  font-weight: 400 900;
+  font-style: normal;
+  font-display: block;
+}
+
+@font-face {
+  font-family: 'Orange Avenue DEMO';
+  src: url('/fonts/OrangeAvenueDemoRegular.otf') format('opentype');
+  font-weight: 400 900;
+  font-style: normal;
+  font-display: block;
+}
+
+@font-face {
+  font-family: 'Arexa';
+  src: url('/fonts/Arexa.otf') format('opentype');
+  font-weight: 400 900;
+  font-style: normal;
+  font-display: block;
+}
+
+@font-face {
+  font-family: 'Athofas';
+  src: url('/fonts/Athofas.otf') format('opentype'),
+       url('/fonts/Athofas.ttf') format('truetype');
+  font-weight: 400 900;
+  font-style: normal;
+  font-display: block;
+}
+
+@import url('https://fonts.googleapis.com/css2?family=Grenze+Gotisch:wght@700;800;900&family=Pirata+One&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-sans: 'Plus Jakarta Sans', 'Outfit', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  --font-gothic: 'Arexa', 'Athofas', 'Grenze Gotisch', 'Pirata One', serif;
+  --font-arexa: 'Arexa', 'Athofas', 'Grenze Gotisch', serif;
+  --font-serif: 'Georgia', serif;
+  --font-display: "Playfair Display", ui-serif, Georgia, serif;
+  
+  --color-bg: #000000;
+  --color-fg: #ffffff;
+  --color-accent: #ff003c;
+  --color-cyan: #00f2ff;
+}
+
+body {
+  background-color: #000000;
+  color: #ffffff;
+}
+
+html, body {
+  overflow-x: clip;
+}
+
+/* Entire site transparent background scrollbar */
+::-webkit-scrollbar {
+  width: 7px;
+  height: 7px;
+  background-color: transparent;
+}
+
+::-webkit-scrollbar-track {
+  background-color: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background-color: rgba(215, 226, 234, 0.2);
+  border-radius: 9999px;
+  border: 1px solid transparent;
+  background-clip: padding-box;
+  transition: background-color 0.2s ease;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(215, 226, 234, 0.45);
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(215, 226, 234, 0.2) transparent;
+}
+
+/* Utility to completely hide scrollbar on elements that should never show one */
+.no-scrollbar::-webkit-scrollbar {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+}
+
+.no-scrollbar {
+  -ms-overflow-style: none !important;
+  scrollbar-width: none !important;
+}
+
+@media (pointer: fine) {
+  html.custom-cursor-active,
+  html.custom-cursor-active *,
+  html.custom-cursor-active body,
+  html.custom-cursor-active canvas,
+  html.custom-cursor-active a,
+  html.custom-cursor-active button,
+  html.custom-cursor-active [role="button"],
+  html.custom-cursor-active [data-magnetic],
+  html.custom-cursor-active [data-cursor],
+  html.custom-cursor-active .cursor-pointer,
+  html.custom-cursor-active .cursor-grab,
+  html.custom-cursor-active .cursor-grabbing {
+    cursor: none !important;
+  }
+
+  html.custom-cursor-active input,
+  html.custom-cursor-active textarea {
+    cursor: text !important;
+  }
+}

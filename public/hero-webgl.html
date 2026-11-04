@@ -1,0 +1,637 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>S Mohammed Saheem — Portfolio Hero</title>
+
+  <style>
+    @font-face {
+      font-family: 'Athofas';
+      src: url('/fonts/Athofas.otf') format('opentype'),
+           url('/fonts/Athofas.ttf') format('truetype');
+      font-weight: 400 900;
+      font-style: normal;
+      font-display: block;
+    }
+
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    html, body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background-color: #000000;
+      color: #ffffff;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+      cursor: none;
+    }
+
+    .hero-container {
+      position: relative;
+      width: 100vw;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      padding: 2.5rem 3.5rem;
+      background: #000000;
+      user-select: none;
+    }
+
+    /* Paper Airplane Cursor */
+    #plane-cursor {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 28px;
+      height: 28px;
+      pointer-events: none;
+      z-index: 9999;
+      transform: translate(-50%, -50%) rotate(-45deg);
+      filter: drop-shadow(0 2px 10px rgba(255,255,255,0.25));
+      opacity: 0;
+    }
+
+    /* Top Left Star */
+    .top-left-star {
+      position: absolute;
+      top: 2.5rem;
+      left: 3rem;
+      width: 28px;
+      height: 28px;
+      z-index: 20;
+      pointer-events: none;
+    }
+
+    /* Top Navigation (Right) */
+    .top-nav {
+      position: relative;
+      z-index: 20;
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 2.2rem;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+    }
+
+    .top-nav a {
+      color: #ffffff;
+      text-decoration: none;
+      transition: opacity 0.2s ease;
+    }
+
+    .top-nav a:hover {
+      opacity: 0.6;
+    }
+
+    .top-nav .resume-btn {
+      border: 1px solid #ffffff;
+      padding: 0.35rem 0.75rem;
+      border-radius: 2px;
+      color: #ffffff;
+      transition: all 0.2s ease;
+    }
+
+    .top-nav .resume-btn:hover {
+      background-color: #ffffff;
+      color: #000000;
+      opacity: 1;
+    }
+
+    /* Rotating Circular Badge (Top Right) */
+    .badge-wrapper {
+      position: absolute;
+      top: 5.5rem;
+      right: 3.5rem;
+      width: 130px;
+      height: 130px;
+      z-index: 20;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      pointer-events: auto;
+    }
+
+    .badge-diamond {
+      width: 14px;
+      height: 24px;
+      background: #ffffff;
+      clip-path: polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%);
+      transition: transform 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    .badge-wrapper:hover .badge-diamond {
+      transform: scale(1.25) rotate(180deg);
+    }
+
+    .badge-svg {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      animation: spinBadge 18s linear infinite;
+    }
+
+    .badge-svg text {
+      font-family: inherit;
+      font-size: 8.8px;
+      font-weight: 700;
+      letter-spacing: 0.24em;
+      text-transform: uppercase;
+      fill: #ffffff;
+    }
+
+    @keyframes spinBadge {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
+    }
+
+    /* WebGL Stage */
+    .webgl-stage {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 10;
+      pointer-events: auto;
+    }
+
+    canvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+
+    /* Bottom Intro Text */
+    .bottom-bar {
+      position: relative;
+      z-index: 20;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+      pointer-events: none;
+    }
+
+    .intro-paragraph {
+      max-width: 440px;
+      font-size: 13px;
+      line-height: 1.6;
+      color: #262626;
+      font-weight: 500;
+      pointer-events: auto;
+    }
+
+    .intro-paragraph a {
+      color: #000000;
+      font-weight: 700;
+      text-decoration: underline;
+      transition: color 0.2s ease;
+    }
+
+    .intro-paragraph a:hover {
+      color: #00f2ff;
+    }
+
+    @media (max-width: 768px) {
+      .hero-container { padding: 1.5rem; }
+      .badge-wrapper { width: 95px; height: 95px; top: 4.5rem; right: 1.5rem; }
+      .top-nav { gap: 1.2rem; font-size: 10px; }
+      .intro-paragraph { font-size: 12px; }
+    }
+  </style>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+</head>
+<body>
+
+  <!-- Origami Paper Plane Cursor -->
+  <div id="plane-cursor">
+    <svg viewBox="0 0 32 32" width="100%" height="100%" fill="none">
+      <path d="M29 3L3 14.5L13.5 18.5L29 3Z" fill="#ffffff" />
+      <path d="M29 3L13.5 18.5L17.5 29L29 3Z" fill="#e2e8f0" />
+      <path d="M13.5 18.5L16 23L17.5 29L13.5 18.5Z" fill="#94a3b8" />
+      <path d="M29 3L13.5 18.5" stroke="#0f172a" stroke-width="0.6" stroke-linecap="round" opacity="0.35" />
+    </svg>
+  </div>
+
+  <div class="hero-container">
+
+    <!-- Top Left Star -->
+    <div class="top-left-star">
+      <svg viewBox="0 0 24 24" width="100%" height="100%">
+        <path d="M12 0 L14.5 9.5 L24 12 L14.5 14.5 L12 24 L9.5 14.5 L0 12 L9.5 9.5 Z" fill="#ffffff" />
+      </svg>
+    </div>
+
+    <!-- Top Navigation (Right) -->
+    <header class="top-nav">
+      <a href="#work">WORK</a>
+      <a href="#examples">EXAMPLES</a>
+      <a href="#about">ABOUT</a>
+      <a href="#resume" class="resume-btn">RESUME +</a>
+    </header>
+
+    <!-- Rotating Circular Badge -->
+    <div class="badge-wrapper" title="Full-Stack Web Developer">
+      <div class="badge-diamond"></div>
+      <svg class="badge-svg" viewBox="0 0 100 100">
+        <defs>
+          <path id="badgeCircle" d="M 50, 50 m -38, 0 a 38,38 0 1,1 76,0 a 38,38 0 1,1 -76,0" />
+        </defs>
+        <text>
+          <textPath href="#badgeCircle" startOffset="0%">
+            FULL-STACK WEB DEVELOPER • 
+          </textPath>
+        </text>
+      </svg>
+    </div>
+
+    <!-- WebGL Canvas Stage -->
+    <div class="webgl-stage" id="stage">
+      <canvas id="webgl-canvas"></canvas>
+    </div>
+
+    <!-- Bottom Intro Text -->
+    <footer class="bottom-bar">
+      <p class="intro-paragraph">
+        Hello and welcome to my digital portfolio. I'm a passionate full-stack web developer dedicated to building engaging web experiences. Explore my projects to see my capabilities. If you're interested in collaborating, or have any questions, feel free to <a href="#contact">reach out here</a>.
+      </p>
+    </footer>
+
+  </div>
+
+  <script>
+    const MAX_TRAIL_POINTS = 36;
+    const CONFIG = {
+      line1: "S Mohammed",
+      line2: "Saheem",
+      fontFamily: "'Athofas', 'Grenze Gotisch', serif",
+      brushRadius: 0.047,
+      pointLife: 0.82
+    };
+
+    const canvas = document.getElementById('webgl-canvas');
+    const planeCursor = document.getElementById('plane-cursor');
+
+    let renderer, scene, camera, planeMesh;
+    let textTexture, textCanvas, textCtx;
+
+    let width = window.innerWidth;
+    let height = window.innerHeight;
+
+    const trailPoints = [];
+    const lastMouse = { x: -1, y: -1 };
+
+    const trailArray = new Float32Array(MAX_TRAIL_POINTS * 4);
+    const dirArray = new Float32Array(MAX_TRAIL_POINTS * 2);
+
+    const uniforms = {
+      u_textTexture: { value: null },
+      u_aspect: { value: width / height },
+      u_radius: { value: CONFIG.brushRadius },
+      u_time: { value: 0.0 },
+      u_trailCount: { value: 0 },
+      u_trail: { value: trailArray },
+      u_dirs: { value: dirArray }
+    };
+
+    const vertexShader = `
+      varying vec2 vUv;
+      void main() {
+        vUv = uv;
+        gl_Position = vec4(position, 1.0);
+      }
+    `;
+
+    const fragmentShader = `
+      uniform sampler2D u_textTexture;
+      uniform float u_aspect;
+      uniform float u_radius;
+      uniform float u_time;
+      uniform int u_trailCount;
+      uniform vec4 u_trail[${MAX_TRAIL_POINTS}];
+      uniform vec2 u_dirs[${MAX_TRAIL_POINTS}];
+
+      varying vec2 vUv;
+
+      void main() {
+        vec2 uv = vUv;
+
+        vec2 totalContactDisp = vec2(0.0);
+        vec2 totalChroma = vec2(0.0);
+        vec2 totalRippleDisp = vec2(0.0);
+        float totalWeight = 0.0;
+
+        for (int i = 0; i < ${MAX_TRAIL_POINTS}; i++) {
+          if (i >= u_trailCount) break;
+
+          vec4 ptData = u_trail[i];
+          vec2 pt = ptData.xy;
+          float intensity = ptData.z;
+          float age = ptData.w;
+
+          if (intensity <= 0.001 || age >= 1.0) continue;
+
+          vec2 diff = vec2((uv.x - pt.x) * u_aspect, uv.y - pt.y);
+          float dist = length(diff);
+
+          vec2 dir = u_dirs[i];
+          vec2 perp = vec2(-dir.y, dir.x);
+
+          float forwardDist = dot(diff, dir);
+          float lateralDist = abs(dot(diff, perp));
+
+          // 1. PRIMARY CONTACT LIQUID DISPLACEMENT (40% reduced area)
+          if (dist < u_radius) {
+            float normalizedDist = dist / u_radius;
+            float falloff = pow(1.0 - normalizedDist, 2.0);
+
+            vec2 normDiff = diff / max(dist, 0.0001);
+            float wave = sin(dist * 75.0 - age * 24.0) * exp(-dist * 18.0);
+            float decay = 1.0 - age;
+            float recoil = sin(decay * 3.14159 * 2.2) * pow(decay, 1.1);
+
+            vec2 fluidKick = dir * 0.70 + normDiff * (0.30 + wave * 0.40);
+            vec2 disp = fluidKick * falloff * recoil * intensity * 0.065;
+
+            // Chromatic aberration applies ONLY to contact area
+            vec2 chroma = (dir * 0.024 + perp * 0.014 + normDiff * wave * 0.016) * falloff * recoil * intensity;
+
+            totalContactDisp += disp;
+            totalChroma += chroma;
+            totalWeight += falloff * intensity;
+          }
+
+          // 2. SMOOTH DIRECTIONAL RIPPLE WAKE (Pure text ripple, zero chromatic distortion)
+          float forwardReach = 0.32;
+          float lateralCorridor = u_radius * 1.8;
+
+          if (forwardDist > u_radius * 0.4 && forwardDist < forwardReach && lateralDist < lateralCorridor) {
+            float lateralFalloff = smoothstep(lateralCorridor, 0.0, lateralDist);
+            float wavePhase = (forwardDist * 32.0 - age * 15.0);
+            float forwardWave = sin(wavePhase);
+            float spatialDecay = exp(-forwardDist * 6.0);
+            float decay = 1.0 - age;
+            float temporalDecay = pow(decay, 1.3);
+
+            float rippleFactor = forwardWave * spatialDecay * temporalDecay * lateralFalloff;
+            vec2 rippleDisp = (perp * 0.85 + dir * 0.15) * rippleFactor * intensity * 0.016;
+
+            totalRippleDisp += rippleDisp;
+            totalWeight += abs(rippleFactor) * intensity * 0.4;
+          }
+        }
+
+        // When undisturbed by cursor or wake, render crisp sharp white text
+        if (totalWeight <= 0.0005) {
+          gl_FragColor = texture2D(u_textTexture, uv);
+          return;
+        }
+
+        vec2 totalDisp = totalContactDisp + totalRippleDisp;
+
+        vec2 uvR = uv - totalDisp - totalChroma;
+        vec2 uvG = uv - totalDisp;
+        vec2 uvB = uv - totalDisp + totalChroma;
+
+        float aR = texture2D(u_textTexture, uvR).a;
+        float aG = texture2D(u_textTexture, uvG).a;
+        float aB = texture2D(u_textTexture, uvB).a;
+
+        vec3 color = vec3(aR, aG, aB);
+        float alpha = max(aR, max(aG, aB));
+
+        gl_FragColor = vec4(color, alpha);
+      }
+    `;
+
+    function createTextTexture() {
+      if (!textCanvas) {
+        textCanvas = document.createElement('canvas');
+        textCtx = textCanvas.getContext('2d');
+      }
+
+      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      textCanvas.width = Math.floor(width * dpr);
+      textCanvas.height = Math.floor(height * dpr);
+
+      textCtx.clearRect(0, 0, textCanvas.width, textCanvas.height);
+
+      const isMobile = width < 768;
+      const targetBlockHeight = height * (isMobile ? 0.40 : 0.46) * dpr;
+      const fontSize = targetBlockHeight * 0.50;
+      const lineGap = fontSize * 0.96;
+
+      textCtx.font = `normal ${fontSize}px ${CONFIG.fontFamily}`;
+      textCtx.fillStyle = '#ffffff';
+      textCtx.textAlign = 'center';
+      textCtx.textBaseline = 'alphabetic';
+
+      const centerX = (width * 0.5) * dpr;
+      const totalVisualHeight = lineGap + fontSize * 0.72;
+      const startY1 = (height * 0.5 * dpr) - (totalVisualHeight * 0.5) + fontSize * 0.72;
+      const startY2 = startY1 + lineGap;
+
+      textCtx.fillText(CONFIG.line1, centerX, startY1);
+      textCtx.fillText(CONFIG.line2, centerX, startY2);
+
+      if (!textTexture) {
+        textTexture = new THREE.CanvasTexture(textCanvas);
+        textTexture.minFilter = THREE.LinearFilter;
+        textTexture.magFilter = THREE.LinearFilter;
+        textTexture.generateMipmaps = false;
+      } else {
+        textTexture.needsUpdate = true;
+      }
+
+      uniforms.u_textTexture.value = textTexture;
+    }
+
+    function addTrailPoint(x, y, vx, vy) {
+      const speed = Math.hypot(vx, vy);
+      if (speed < 0.0003) return;
+
+      const dirX = vx / speed;
+      const dirY = vy / speed;
+
+      if (trailPoints.length >= MAX_TRAIL_POINTS) {
+        trailPoints.shift();
+      }
+
+      trailPoints.push({
+        x,
+        y,
+        dirX,
+        dirY,
+        age: 0,
+        intensity: Math.min(1.0, speed * 25.0 + 0.45)
+      });
+    }
+
+    function updateTrailPoints(deltaSec) {
+      for (let i = trailPoints.length - 1; i >= 0; i--) {
+        const p = trailPoints[i];
+        p.age += deltaSec / CONFIG.pointLife;
+        if (p.age >= 1.0) {
+          trailPoints.splice(i, 1);
+        }
+      }
+
+      const count = Math.min(trailPoints.length, MAX_TRAIL_POINTS);
+      uniforms.u_trailCount.value = count;
+
+      for (let i = 0; i < count; i++) {
+        const p = trailPoints[i];
+        const idx4 = i * 4;
+        trailArray[idx4 + 0] = p.x;
+        trailArray[idx4 + 1] = p.y;
+        trailArray[idx4 + 2] = p.intensity;
+        trailArray[idx4 + 3] = p.age;
+
+        const idx2 = i * 2;
+        dirArray[idx2 + 0] = p.dirX;
+        dirArray[idx2 + 1] = p.dirY;
+      }
+    }
+
+    function initThree() {
+      scene = new THREE.Scene();
+      camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+
+      renderer = new THREE.WebGLRenderer({
+        canvas,
+        alpha: true,
+        antialias: true,
+        powerPreference: "high-performance"
+      });
+      renderer.setClearColor(0x000000, 0.0);
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+      renderer.setSize(width, height);
+
+      createTextTexture();
+
+      const geometry = new THREE.PlaneGeometry(2, 2);
+      const material = new THREE.ShaderMaterial({
+        vertexShader,
+        fragmentShader,
+        uniforms,
+        depthTest: false,
+        depthWrite: false,
+        transparent: true
+      });
+
+      planeMesh = new THREE.Mesh(geometry, material);
+      scene.add(planeMesh);
+    }
+
+    let cursorX = -100, cursorY = -100;
+    let smoothCursorX = -100, smoothCursorY = -100;
+    let continuousAngle = -45;
+    let smoothAngle = -45;
+    let lastCursorPos = { x: -100, y: -100 };
+
+    window.addEventListener('mousemove', (e) => {
+      cursorX = e.clientX;
+      cursorY = e.clientY;
+      planeCursor.style.opacity = '1';
+
+      const dx = cursorX - lastCursorPos.x;
+      const dy = cursorY - lastCursorPos.y;
+      const speed = Math.hypot(dx, dy);
+
+      if (speed > 1.2 && lastCursorPos.x !== -100) {
+        const moveAngleRad = Math.atan2(dy, dx);
+        const targetDeg = (moveAngleRad * 180) / Math.PI + 45;
+
+        let diff = (targetDeg - continuousAngle) % 360;
+        if (diff > 180) diff -= 360;
+        if (diff < -180) diff += 360;
+
+        continuousAngle += diff;
+      }
+
+      lastCursorPos = { x: cursorX, y: cursorY };
+
+      const normX = cursorX / width;
+      const normY = 1.0 - (cursorY / height);
+
+      if (lastMouse.x >= 0 && lastMouse.y >= 0) {
+        const mdx = normX - lastMouse.x;
+        const mdy = normY - lastMouse.y;
+        const dist = Math.hypot(mdx, mdy);
+        const steps = Math.max(1, Math.ceil(dist / 0.008));
+        for (let i = 1; i <= steps; i++) {
+          const t = i / steps;
+          addTrailPoint(lastMouse.x + mdx * t, lastMouse.y + mdy * t, mdx, mdy);
+        }
+      }
+
+      lastMouse.x = normX;
+      lastMouse.y = normY;
+    }, { passive: true });
+
+    window.addEventListener('resize', () => {
+      width = window.innerWidth;
+      height = window.innerHeight;
+      renderer.setSize(width, height);
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+      uniforms.u_aspect.value = width / height;
+      createTextTexture();
+    });
+
+    let lastTime = performance.now();
+    const clock = new THREE.Clock();
+
+    function animate() {
+      requestAnimationFrame(animate);
+
+      const now = performance.now();
+      const deltaSec = Math.min(0.05, (now - lastTime) / 1000);
+      lastTime = now;
+
+      smoothCursorX += (cursorX - smoothCursorX) * 0.35;
+      smoothCursorY += (cursorY - smoothCursorY) * 0.35;
+      smoothAngle += (continuousAngle - smoothAngle) * 0.25;
+
+      planeCursor.style.transform = `translate(${smoothCursorX}px, ${smoothCursorY}px) translate(-50%, -50%) rotate(${smoothAngle}deg)`;
+
+      uniforms.u_time.value = clock.getElapsedTime();
+      updateTrailPoints(deltaSec);
+
+      if (renderer && scene && camera) {
+        renderer.render(scene, camera);
+      }
+    }
+
+    initThree();
+    animate();
+
+    try {
+      const athofasFont = new FontFace('Athofas', 'url(/fonts/Athofas.otf)');
+      athofasFont.load().then((loadedFont) => {
+        document.fonts.add(loadedFont);
+        document.fonts.load('80px "Athofas"').then(() => {
+          createTextTexture();
+        });
+      }).catch(() => {
+        const ttf = new FontFace('Athofas', 'url(/fonts/Athofas.ttf)');
+        ttf.load().then((loadedFont) => {
+          document.fonts.add(loadedFont);
+          createTextTexture();
+        });
+      });
+    } catch (e) {
+      console.warn('Font load fallback', e);
+    }
+  </script>
+</body>
+</html>
