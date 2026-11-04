@@ -13,51 +13,31 @@ interface WebGLTextHeroProps {
 interface TextParticle {
   homeX: number;
   homeY: number;
-  scatterX: number;
-  scatterY: number;
+  startX: number;
+  startY: number;
+  driftX: number;
+  driftY: number;
   x: number;
   y: number;
   vx: number;
   vy: number;
   size: number;
   baseAlpha: number;
-  displaced: number; // 0.0 (sitting at home) to 1.0 (airborne ball)
+  displaced: number;
   springK: number;
   damping: number;
   wanderAngle: number;
   wanderSpeed: number;
-  // Tornado & scatter intro parameters
-  vortexAngle: number;
-  vortexHeight: number; // -1 (top crown) to +1 (bottom funnel base)
-  vortexRadiusFactor: number;
-  orbitSpeed: number;
-  settleDelay: number;
-  depthZ: number;
+  delay: number;
 }
 
-const INTRO_TOTAL_DURATION = 2.85; // seconds for full scatter -> tornado -> name assembly
+// Calm, slow, non-abrupt duration for fine dots to gently ease into "S Mohammed Saheem"
+const GENTLE_SETTLE_DURATION = 3.2;
 
 export function WebGLTextHero({ onScrollToProjects, onNavigateToSection }: WebGLTextHeroProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [isHeroMenuOpen, setIsHeroMenuOpen] = useState(false);
-  const [isIntroComplete, setIsIntroComplete] = useState(false);
-  const [introProgressPct, setIntroProgressPct] = useState(0);
-  const [introStageLabel, setIntroStageLabel] = useState('SCATTERING LUMINOUS MOTES');
-
-  // Lock vertical page scroll briefly while the initial tornado-to-name loading sequence plays
-  useEffect(() => {
-    if (isIntroComplete) return;
-    const prevBodyOverflow = document.body.style.overflow;
-    const prevHtmlOverflow = document.documentElement.style.overflow;
-    document.body.style.overflow = 'hidden';
-    document.documentElement.style.overflow = 'hidden';
-
-    return () => {
-      document.body.style.overflow = prevBodyOverflow;
-      document.documentElement.style.overflow = prevHtmlOverflow;
-    };
-  }, [isIntroComplete]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -75,19 +55,18 @@ export function WebGLTextHero({ onScrollToProjects, onNavigateToSection }: WebGL
       willReadFrequently: true,
     });
 
-    // Pre-rendered 48x48 radial glow sprite for GPU-accelerated glowing white spheres
+    // Subtle, delicate radial glow sprite for fine pinpoint dots
     const glowSprite = document.createElement('canvas');
-    glowSprite.width = 48;
-    glowSprite.height = 48;
+    glowSprite.width = 24;
+    glowSprite.height = 24;
     const gCtx = glowSprite.getContext('2d');
     if (gCtx) {
-      const grad = gCtx.createRadialGradient(24, 24, 0, 24, 24, 24);
-      grad.addColorStop(0, 'rgba(255, 255, 255, 0.95)');
-      grad.addColorStop(0.22, 'rgba(255, 255, 255, 0.58)');
-      grad.addColorStop(0.52, 'rgba(220, 235, 255, 0.18)');
+      const grad = gCtx.createRadialGradient(12, 12, 0, 12, 12, 12);
+      grad.addColorStop(0, 'rgba(255, 255, 255, 0.55)');
+      grad.addColorStop(0.35, 'rgba(255, 255, 255, 0.18)');
       grad.addColorStop(1, 'rgba(255, 255, 255, 0)');
       gCtx.fillStyle = grad;
-      gCtx.fillRect(0, 0, 48, 48);
+      gCtx.fillRect(0, 0, 24, 24);
     }
 
     const mouse = {
@@ -104,8 +83,7 @@ export function WebGLTextHero({ onScrollToProjects, onNavigateToSection }: WebGL
 
     let particles: TextParticle[] = [];
     const introStartTime = performance.now();
-    let introFinishedLocal = false;
-    let lastReportedPct = -1;
+    let introDone = false;
 
     const CONFIG = {
       line1: 'S Mohammed',
@@ -113,9 +91,8 @@ export function WebGLTextHero({ onScrollToProjects, onNavigateToSection }: WebGL
       fontFamily: "'Charles Rosie', 'Charles Rosie Regular', 'Orange Avenue', 'Arexa', serif",
     };
 
-    // Rasterizes crisp text to offscreen canvas and extracts particle grid
-    // If preserveFlight is true (e.g. when webfont finishes loading mid-tornado), keeps in-flight coordinates
-    const rasterizeAndSampleParticles = (preserveFlight = false) => {
+    // Rasterizes crisp text to offscreen canvas and extracts fine particle grid
+    const rasterizeAndSampleParticles = (preserveIntroPositions = false) => {
       if (!textCanvas || !textCtx) return;
 
       const dpr = Math.min(window.devicePixelRatio || 1, 2);
@@ -177,7 +154,8 @@ export function WebGLTextHero({ onScrollToProjects, onNavigateToSection }: WebGL
       const imgData = textCtx.getImageData(boxLeft, boxTop, boxW, boxH);
       const data = imgData.data;
 
-      const step = Math.max(4, Math.round(5.2 * (dpr / 1.5)));
+      // Fine density step for delicate pinpoint dots
+      const step = Math.max(4, Math.round(4.8 * (dpr / 1.5)));
       const prevParticles = particles;
       const newParticles: TextParticle[] = [];
       let pCount = 0;
@@ -191,47 +169,49 @@ export function WebGLTextHero({ onScrollToProjects, onNavigateToSection }: WebGL
             const homeX = (boxLeft + px) / dpr;
             const homeY = (boxTop + py) / dpr;
 
-            const isCore = Math.random() < 0.36;
-            const size = isCore ? 2.15 : Math.random() < 0.6 ? 1.65 : 1.3;
+            // Fine, delicate dot radius (0.9px to 1.45px) — never bulky
+            const size = 0.9 + Math.random() * 0.55;
 
             const existing =
-              preserveFlight && prevParticles.length > 0
+              preserveIntroPositions && prevParticles.length > 0
                 ? prevParticles[pCount % prevParticles.length]
                 : null;
 
-            const scatterX = existing ? existing.scatterX : Math.random() * width;
-            const scatterY = existing ? existing.scatterY : Math.random() * height;
-            const vortexHeight = existing ? existing.vortexHeight : Math.random() * 2 - 1;
-            const vortexAngle = existing ? existing.vortexAngle : Math.random() * Math.PI * 2;
-            const vortexRadiusFactor = existing
-              ? existing.vortexRadiusFactor
-              : 0.28 + Math.random() * 0.98;
-            const orbitSpeed = existing ? existing.orbitSpeed : 4.4 + Math.random() * 3.8;
-            const settleDelay =
-              ((homeX / Math.max(1, width)) * 0.28) + Math.random() * 0.16;
+            // Soft, airy random dispersion around the canvas
+            const angle = Math.random() * Math.PI * 2;
+            const spreadRadiusX = (0.12 + Math.pow(Math.random(), 0.85) * 0.42) * width;
+            const spreadRadiusY = (0.12 + Math.pow(Math.random(), 0.85) * 0.42) * height;
+
+            const startX = existing
+              ? existing.startX
+              : centerX + Math.cos(angle) * spreadRadiusX + (Math.random() - 0.5) * 60;
+            const startY = existing
+              ? existing.startY
+              : centerY + Math.sin(angle) * spreadRadiusY + (Math.random() - 0.5) * 60;
+
+            const driftX = existing ? existing.driftX : (Math.random() - 0.5) * 28;
+            const driftY = existing ? existing.driftY : (Math.random() - 0.5) * 28;
+            const delay = existing ? existing.delay : Math.random() * 0.45;
 
             newParticles.push({
               homeX,
               homeY,
-              scatterX,
-              scatterY,
-              x: existing ? existing.x : scatterX,
-              y: existing ? existing.y : scatterY,
-              vx: existing ? existing.vx : (Math.random() - 0.5) * 14,
-              vy: existing ? existing.vy : (Math.random() - 0.5) * 14,
+              startX,
+              startY,
+              driftX,
+              driftY,
+              x: existing ? existing.x : startX,
+              y: existing ? existing.y : startY,
+              vx: 0,
+              vy: 0,
               size,
-              baseAlpha: alpha / 255,
-              displaced: introFinishedLocal ? 0 : 1,
-              springK: 0.055 + Math.random() * 0.028,
-              damping: 0.88 + Math.random() * 0.035,
+              baseAlpha: (alpha / 255) * (0.75 + Math.random() * 0.25),
+              displaced: introDone ? 0 : 1,
+              springK: 0.042 + Math.random() * 0.02,
+              damping: 0.9 + Math.random() * 0.03,
               wanderAngle: Math.random() * Math.PI * 2,
-              wanderSpeed: (0.015 + Math.random() * 0.02) * (Math.random() < 0.5 ? 1 : -1),
-              vortexAngle,
-              vortexHeight,
-              vortexRadiusFactor,
-              orbitSpeed,
-              settleDelay,
-              depthZ: 0,
+              wanderSpeed: (0.01 + Math.random() * 0.015) * (Math.random() < 0.5 ? 1 : -1),
+              delay,
             });
             pCount++;
           }
@@ -257,7 +237,7 @@ export function WebGLTextHero({ onScrollToProjects, onNavigateToSection }: WebGL
       rasterizeAndSampleParticles(true);
     };
 
-    // Initial build with scatter coordinates
+    // Initial setup
     width = canvas.parentElement?.clientWidth || window.innerWidth;
     height = canvas.parentElement?.clientHeight || window.innerHeight;
     const initDpr = Math.min(window.devicePixelRatio || 1, 2);
@@ -269,7 +249,7 @@ export function WebGLTextHero({ onScrollToProjects, onNavigateToSection }: WebGL
     ctx.scale(initDpr, initDpr);
     rasterizeAndSampleParticles(false);
 
-    // Load custom Charles Rosie font and update particle home targets without interrupting tornado flight
+    // Load custom Charles Rosie font and update home coordinates smoothly
     try {
       const charlesFont1 = new FontFace(
         'Charles Rosie',
@@ -354,167 +334,78 @@ export function WebGLTextHero({ onScrollToProjects, onNavigateToSection }: WebGL
 
       const introElapsed = (now - introStartTime) / 1000;
 
-      // Clear main canvas frame
       ctx.clearRect(0, 0, width, height);
 
       // =======================================================================
-      // PHASE A: LOADING TORNADO VORTEX -> "S MOHAMMED SAHEEM" ASSEMBLY
+      // PHASE A: SLOW, SMOOTH EASE-IN-OUT CONVERGENCE OF FINE DOTS INTO NAME
       // =======================================================================
-      if (!introFinishedLocal) {
-        const rawPct = Math.min(100, Math.round((introElapsed / INTRO_TOTAL_DURATION) * 100));
-        if (rawPct !== lastReportedPct) {
-          lastReportedPct = rawPct;
-          setIntroProgressPct(rawPct);
-          if (introElapsed < 0.55) {
-            setIntroStageLabel('SCATTERING LUMINOUS MOTES');
-          } else if (introElapsed < 1.45) {
-            setIntroStageLabel('IGNITING PARTICLE TORNADO VORTEX');
-          } else {
-            setIntroStageLabel('CONVERGING INTO S MOHAMMED SAHEEM');
-          }
-        }
-
-        const isMobile = width < 768;
-        const centerX = width * 0.5;
-        const centerY = isMobile ? height * 0.43 : height * 0.5;
-        const maxFunnelW = isMobile ? width * 0.36 : width * 0.25;
-        const funnelHalfH = isMobile ? height * 0.34 : height * 0.41;
-
-        // Subtle atmospheric vortex core glow while tornado is active
-        const vortexIntensity =
-          introElapsed < 1.35
-            ? Math.min(1, introElapsed / 0.45)
-            : Math.max(0, 1 - (introElapsed - 1.35) / 1.1);
-
-        if (vortexIntensity > 0.02) {
-          ctx.save();
-          const funnelGrad = ctx.createRadialGradient(
-            centerX,
-            centerY,
-            4,
-            centerX,
-            centerY,
-            maxFunnelW * 1.35
-          );
-          funnelGrad.addColorStop(0, `rgba(255, 255, 255, ${0.11 * vortexIntensity})`);
-          funnelGrad.addColorStop(0.5, `rgba(255, 255, 255, ${0.035 * vortexIntensity})`);
-          funnelGrad.addColorStop(1, 'rgba(255, 255, 255, 0)');
-          ctx.fillStyle = funnelGrad;
-          ctx.fillRect(0, 0, width, height);
-          ctx.restore();
-        }
-
-        // Progressive base glyph fade-in during the final lock-in (2.15s -> 2.85s)
-        const glyphRevealAlpha = Math.max(
+      if (!introDone) {
+        // Soft, progressive fade-in of the solid crisp letterforms only in the final 35% of settling
+        const solidTextAlpha = Math.max(
           0,
-          Math.min(1, (introElapsed - 2.15) / (INTRO_TOTAL_DURATION - 2.15))
+          Math.min(1, (introElapsed - GENTLE_SETTLE_DURATION * 0.65) / (GENTLE_SETTLE_DURATION * 0.35))
         );
-        if (glyphRevealAlpha > 0.01 && textCanvas) {
+        // Smooth sine ease for the solid glyph cross-dissolve
+        const easedSolidAlpha = 0.5 - 0.5 * Math.cos(solidTextAlpha * Math.PI);
+
+        if (easedSolidAlpha > 0.01 && textCanvas) {
           ctx.save();
-          ctx.globalAlpha = glyphRevealAlpha;
+          ctx.globalAlpha = easedSolidAlpha;
           ctx.drawImage(textCanvas, 0, 0, width, height);
           ctx.restore();
         }
 
-        // Update each particle along: Chaotic Scatter -> 3D Swirling Tornado -> Home Glyph Lock-In
+        const effectiveDuration = GENTLE_SETTLE_DURATION - 0.45;
+
         for (let i = 0; i < particles.length; i++) {
           const p = particles[i];
+          const localTime = Math.max(0, introElapsed - p.delay);
+          const t = Math.min(1, localTime / effectiveDuration);
 
-          // 1. Chaotic random wandering position ("go here and there randomly")
-          const chaosX =
-            p.scatterX +
-            Math.cos(introElapsed * 5.2 + p.vortexAngle * 2) * 48 +
-            Math.sin(introElapsed * 8.1 + i * 0.13) * 24;
-          const chaosY =
-            p.scatterY +
-            Math.sin(introElapsed * 4.8 + p.vortexAngle * 2) * 48 +
-            Math.cos(introElapsed * 7.4 + i * 0.17) * 24;
+          // Pure, ultra-smooth ease-in-out (sine + cubic blend) — starts slowly, glides smoothly, settles gently
+          const easeSine = 0.5 - 0.5 * Math.cos(t * Math.PI);
+          const easeCubic = t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+          const ease = easeSine * 0.55 + easeCubic * 0.45;
 
-          // 2. 3D Swirling Tornado Funnel coordinates
-          // Funnel widens toward top (vortexHeight = -1) and tightens toward base (vortexHeight = +1)
-          const hNorm = p.vortexHeight; // -1..1
-          const funnelShape = 0.16 + Math.pow((1 - hNorm) * 0.5, 1.25) * 0.92;
-          const currentRadius = maxFunnelW * funnelShape * p.vortexRadiusFactor;
+          // Gentle ambient float that fades to zero as the dot eases into its letter position
+          const floatEnvelope = Math.sin(t * Math.PI) * (1 - ease);
+          const curX =
+            p.startX + (p.homeX - p.startX) * ease + p.driftX * floatEnvelope;
+          const curY =
+            p.startY + (p.homeY - p.startY) * ease + p.driftY * floatEnvelope;
 
-          // Sinuous S-curve tornado spine bend
-          const spineSwayX =
-            Math.sin(hNorm * 3.4 - introElapsed * 6.2) * (isMobile ? 22 : 42) * (1 - Math.abs(hNorm) * 0.35);
-
-          // Fast angular swirl (faster near the tight bottom core)
-          const spinAngle =
-            p.vortexAngle + introElapsed * p.orbitSpeed * (1.75 - hNorm * 0.45);
-
-          const cosA = Math.cos(spinAngle);
-          const sinA = Math.sin(spinAngle); // depthZ: -1 (back of funnel) to +1 (front of funnel)
-          p.depthZ = sinA;
-
-          const tornadoX = centerX + spineSwayX + cosA * currentRadius;
-          const tornadoY = centerY + hNorm * funnelHalfH + sinA * 16;
-
-          // Blend from initial chaotic scatter into the swirling tornado (0.0s -> 0.65s)
-          const pullIntoTornado = Math.min(1, introElapsed / 0.62);
-          const smoothPull = pullIntoTornado * pullIntoTornado * (3 - 2 * pullIntoTornado);
-
-          const activeVortexX = chaosX + (tornadoX - chaosX) * smoothPull;
-          const activeVortexY = chaosY + (tornadoY - chaosY) * smoothPull;
-
-          // 3. Convergence from Tornado into "S Mohammed Saheem" (1.28s -> 2.80s)
-          const settleStart = 1.25 + p.settleDelay;
-          const settleDuration = 1.12;
-          const rawSettle = Math.max(
-            0,
-            Math.min(1, (introElapsed - settleStart) / settleDuration)
-          );
-
-          // Quartic ease-out for magnetic snap into the letterforms
-          const easeSettle = 1 - Math.pow(1 - rawSettle, 4);
-
-          // Spiral arc flair during flight from tornado to letter glyph
-          const arcLift = Math.sin(rawSettle * Math.PI) * (1 - rawSettle) * 36;
-          const arcAngle = spinAngle + rawSettle * 2.2;
-
-          p.x =
-            activeVortexX +
-            (p.homeX - activeVortexX) * easeSettle +
-            Math.cos(arcAngle) * arcLift;
-          p.y =
-            activeVortexY +
-            (p.homeY - activeVortexY) * easeSettle +
-            Math.sin(arcAngle) * arcLift;
-
-          p.displaced = 1 - easeSettle;
-          p.vx = 0;
-          p.vy = 0;
+          p.x = curX;
+          p.y = curY;
+          p.displaced = 1 - ease;
         }
 
-        // Draw glowing white halos for particles in flight (batched stride for 120fps)
-        const glowStride = particles.length > 2200 ? 2 : 1;
-        for (let i = 0; i < particles.length; i += glowStride) {
+        // Subtle soft glow on a subset of fine dots while airborne
+        const dotFadeIn = Math.min(1, introElapsed / 0.55);
+        ctx.save();
+        ctx.globalAlpha = dotFadeIn * (1 - easedSolidAlpha * 0.85);
+
+        for (let i = 0; i < particles.length; i += 3) {
           const p = particles[i];
-          if (p.displaced > 0.03) {
-            const depthBoost = 1 + p.depthZ * 0.38 * p.displaced;
-            const glowR = p.size * (2.6 + p.displaced * 2.4) * Math.max(0.6, depthBoost);
-            ctx.drawImage(glowSprite, p.x - glowR, p.y - glowR, glowR * 2, glowR * 2);
+          if (p.displaced > 0.05) {
+            const gR = p.size * 2.8;
+            ctx.drawImage(glowSprite, p.x - gR, p.y - gR, gR * 2, gR * 2);
           }
         }
 
-        // Draw crisp glowing white spherical cores
+        // Draw crisp, fine white dots
         ctx.fillStyle = '#ffffff';
         ctx.beginPath();
         for (let i = 0; i < particles.length; i++) {
           const p = particles[i];
-          // Fade out individual particle circles only at the very end as solid vector glyph takes over
-          if (p.displaced > 0.01 || glyphRevealAlpha < 0.98) {
-            const depthBoost = 1 + p.depthZ * 0.32 * p.displaced;
-            const ballRadius = p.size * (0.95 + p.displaced * 0.55) * Math.max(0.65, depthBoost);
-            ctx.moveTo(p.x + ballRadius, p.y);
-            ctx.arc(p.x, p.y, ballRadius, 0, Math.PI * 2);
-          }
+          const r = p.size;
+          ctx.moveTo(p.x + r, p.y);
+          ctx.arc(p.x, p.y, r, 0, Math.PI * 2);
         }
         ctx.fill();
+        ctx.restore();
 
-        if (introElapsed >= INTRO_TOTAL_DURATION) {
-          introFinishedLocal = true;
+        if (introElapsed >= GENTLE_SETTLE_DURATION) {
+          introDone = true;
           for (let i = 0; i < particles.length; i++) {
             particles[i].x = particles[i].homeX;
             particles[i].y = particles[i].homeY;
@@ -522,8 +413,6 @@ export function WebGLTextHero({ onScrollToProjects, onNavigateToSection }: WebGL
             particles[i].vy = 0;
             particles[i].displaced = 0;
           }
-          setIntroProgressPct(100);
-          setIsIntroComplete(true);
         }
 
         animId = requestAnimationFrame(render);
@@ -531,7 +420,7 @@ export function WebGLTextHero({ onScrollToProjects, onNavigateToSection }: WebGL
       }
 
       // =======================================================================
-      // PHASE B: INTERACTIVE HERO TEXT DISINTEGRATION & RECONSTRUCTION
+      // PHASE B: CALM INTERACTIVE TEXT DISINTEGRATION & RECONSTRUCTION
       // =======================================================================
       if (mouse.x < -1000) {
         mouse.x = mouse.targetX;
@@ -541,24 +430,15 @@ export function WebGLTextHero({ onScrollToProjects, onNavigateToSection }: WebGL
       } else {
         mouse.lastX = mouse.x;
         mouse.lastY = mouse.y;
-        mouse.x += (mouse.targetX - mouse.x) * 0.42 * dt;
-        mouse.y += (mouse.targetY - mouse.y) * 0.42 * dt;
+        mouse.x += (mouse.targetX - mouse.x) * 0.35 * dt;
+        mouse.y += (mouse.targetY - mouse.y) * 0.35 * dt;
         mouse.vx = (mouse.x - mouse.lastX) / dt;
         mouse.vy = (mouse.y - mouse.lastY) / dt;
       }
 
       const mouseSpeed = Math.hypot(mouse.vx, mouse.vy);
-      const interactRadius = Math.max(52, Math.min(88, width * 0.058));
+      const interactRadius = Math.max(48, Math.min(82, width * 0.055));
       const interactRadiusSq = interactRadius * interactRadius;
-
-      // Autonomous harmonic shimmer wave when pointer is idle
-      const idleTime = now * 0.0012;
-      const idleWaveX = width * (0.5 + Math.sin(idleTime * 1.1) * 0.32);
-      const idleWaveY =
-        (width < 768 ? height * 0.41 : height * 0.49) +
-        Math.cos(idleTime * 1.7) * (height * 0.06);
-      const idleRadius = width < 768 ? 26 : 34;
-      const idleRadiusSq = idleRadius * idleRadius;
 
       // Draw the crisp solid text
       if (textCanvas) {
@@ -567,7 +447,7 @@ export function WebGLTextHero({ onScrollToProjects, onNavigateToSection }: WebGL
 
       let hasDisplaced = false;
 
-      // Process particle physics with buttery-smooth spring return
+      // Process particle physics with calm, smooth spring return
       for (let i = 0; i < particles.length; i++) {
         const p = particles[i];
 
@@ -578,32 +458,18 @@ export function WebGLTextHero({ onScrollToProjects, onNavigateToSection }: WebGL
 
           if (distSq < interactRadiusSq) {
             const dist = Math.sqrt(distSq);
-            const force = Math.pow(1 - dist / interactRadius, 1.35);
+            const force = Math.pow(1 - dist / interactRadius, 1.45);
             const normX = dist > 0.001 ? mdx / dist : Math.random() - 0.5;
             const normY = dist > 0.001 ? mdy / dist : Math.random() - 0.5;
 
-            const kickMag = (5.8 + mouseSpeed * 0.55) * force;
+            const kickMag = (4.2 + mouseSpeed * 0.42) * force;
             p.vx += normX * kickMag;
             p.vy += normY * kickMag;
 
-            p.vx += mouse.vx * 0.32 * force;
-            p.vy += mouse.vy * 0.32 * force;
-
-            p.vx += -normY * (Math.random() - 0.5) * 3.2 * force;
-            p.vy += normX * (Math.random() - 0.5) * 3.2 * force;
+            p.vx += mouse.vx * 0.25 * force;
+            p.vy += mouse.vy * 0.25 * force;
 
             p.displaced = 1.0;
-          }
-        } else if (i % 7 === 0) {
-          const idx = p.homeX - idleWaveX;
-          const idy = p.homeY - idleWaveY;
-          const iDistSq = idx * idx + idy * idy;
-          if (iDistSq < idleRadiusSq && p.displaced < 0.15) {
-            const iDist = Math.sqrt(iDistSq);
-            const iForce = (1 - iDist / idleRadius) * 0.45;
-            p.vx += Math.cos(idleTime * 2 + i) * 1.4 * iForce;
-            p.vy -= (0.9 + Math.random() * 0.8) * iForce;
-            p.displaced = 0.65;
           }
         }
 
@@ -611,8 +477,8 @@ export function WebGLTextHero({ onScrollToProjects, onNavigateToSection }: WebGL
           hasDisplaced = true;
 
           p.wanderAngle += p.wanderSpeed * dt;
-          p.vx += Math.cos(p.wanderAngle) * 0.06 * p.displaced * dt;
-          p.vy += Math.sin(p.wanderAngle) * 0.06 * p.displaced * dt;
+          p.vx += Math.cos(p.wanderAngle) * 0.04 * p.displaced * dt;
+          p.vy += Math.sin(p.wanderAngle) * 0.04 * p.displaced * dt;
 
           const returnDx = p.homeX - p.x;
           const returnDy = p.homeY - p.y;
@@ -628,7 +494,7 @@ export function WebGLTextHero({ onScrollToProjects, onNavigateToSection }: WebGL
           p.y += p.vy * dt;
 
           const curSpeed = Math.hypot(p.vx, p.vy);
-          if (distToHome < 0.75 && curSpeed < 0.14) {
+          if (distToHome < 0.65 && curSpeed < 0.12) {
             p.x = p.homeX;
             p.y = p.homeY;
             p.vx = 0;
@@ -646,7 +512,7 @@ export function WebGLTextHero({ onScrollToProjects, onNavigateToSection }: WebGL
         for (let i = 0; i < particles.length; i++) {
           const p = particles[i];
           if (p.displaced > 0.04) {
-            const holeR = p.size * (1.35 + p.displaced * 2.1);
+            const holeR = p.size * (1.35 + p.displaced * 1.8);
             ctx.moveTo(p.homeX + holeR, p.homeY);
             ctx.arc(p.homeX, p.homeY, holeR, 0, Math.PI * 2);
           }
@@ -655,11 +521,10 @@ export function WebGLTextHero({ onScrollToProjects, onNavigateToSection }: WebGL
 
         ctx.globalCompositeOperation = 'source-over';
 
-        for (let i = 0; i < particles.length; i++) {
+        for (let i = 0; i < particles.length; i += 2) {
           const p = particles[i];
           if (p.displaced > 0.04) {
-            const speed = Math.hypot(p.vx, p.vy);
-            const glowR = p.size * (1.7 + Math.min(2.0, speed * 0.28));
+            const glowR = p.size * 2.4;
             ctx.drawImage(glowSprite, p.x - glowR, p.y - glowR, glowR * 2, glowR * 2);
           }
         }
@@ -732,37 +597,11 @@ export function WebGLTextHero({ onScrollToProjects, onNavigateToSection }: WebGL
       ref={containerRef}
       className="relative w-full h-[100svh] sm:h-screen bg-transparent text-white flex flex-col justify-between p-4 sm:p-8 lg:p-14 select-none overflow-hidden"
     >
-      {/* Loading Tornado HUD (Visible only while glowing balls swirl in tornado & form S Mohammed Saheem) */}
-      <AnimatePresence>
-        {!isIntroComplete && (
-          <motion.div
-            key="tornado-loading-hud"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0, filter: 'blur(6px)' }}
-            transition={{ duration: 0.45, ease: [0.16, 1, 0.3, 1] }}
-            className="pointer-events-none fixed inset-x-0 bottom-8 sm:bottom-12 z-40 flex flex-col items-center justify-center px-6"
-          >
-            <div className="flex items-center gap-3 text-[10px] sm:text-[11px] font-mono uppercase tracking-[0.24em] text-neutral-300 mb-2.5">
-              <span className="w-1.5 h-1.5 rounded-full bg-white shadow-[0_0_10px_#fff] animate-pulse" />
-              <span>{introStageLabel}</span>
-              <span className="text-white font-bold tabular-nums">{introProgressPct}%</span>
-            </div>
-            <div className="w-48 sm:w-64 h-[1.5px] bg-white/15 overflow-hidden relative">
-              <div
-                className="h-full bg-white shadow-[0_0_12px_#ffffff] transition-all duration-75 ease-out"
-                style={{ width: `${introProgressPct}%` }}
-              />
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* Decorative ambient star near title (Desktop only, reveals after tornado settles) */}
+      {/* Decorative ambient star near title (Desktop only) */}
       <motion.div
-        initial={{ opacity: 0, scale: 0.5 }}
-        animate={isIntroComplete ? { opacity: 0.8, scale: 1 } : { opacity: 0, scale: 0.5 }}
-        transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 0.8 }}
+        transition={{ duration: 1.4, delay: 0.8, ease: 'easeInOut' }}
         className="absolute top-[28vh] left-[26vw] z-20 pointer-events-none hidden md:block"
       >
         <svg className="w-3.5 h-3.5 fill-white" viewBox="0 0 24 24">
@@ -770,14 +609,12 @@ export function WebGLTextHero({ onScrollToProjects, onNavigateToSection }: WebGL
         </svg>
       </motion.div>
 
-      {/* 1. Top Navigation Bar (Reveals smoothly once glowing tornado settles into S Mohammed Saheem) */}
+      {/* 1. Top Navigation Bar */}
       <motion.header
-        initial={{ opacity: 0, y: -16 }}
-        animate={isIntroComplete ? { opacity: 1, y: 0 } : { opacity: 0, y: -16 }}
-        transition={{ duration: 0.65, ease: [0.16, 1, 0.3, 1] }}
-        className={`relative z-30 flex items-center justify-between w-full ${
-          isIntroComplete ? 'pointer-events-auto' : 'pointer-events-none'
-        }`}
+        initial={{ opacity: 0, y: -8 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 1.1, delay: 0.3, ease: [0.22, 1, 0.36, 1] }}
+        className="relative z-30 flex items-center justify-between w-full"
       >
         {/* Left Brand Emblem: 4-Point Star + Mobile Compact Identity */}
         <div className="flex items-center gap-2.5">
@@ -947,9 +784,9 @@ export function WebGLTextHero({ onScrollToProjects, onNavigateToSection }: WebGL
 
       {/* Awwwards-style Ribbon Badge on Right Hero Edge */}
       <motion.div
-        initial={{ opacity: 0, x: 20 }}
-        animate={isIntroComplete ? { opacity: 1, x: 0 } : { opacity: 0, x: 20 }}
-        transition={{ duration: 0.55, delay: 0.1, ease: [0.16, 1, 0.3, 1] }}
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 1.1, delay: 0.5, ease: 'easeInOut' }}
         className="absolute right-0 top-1/2 -translate-y-1/2 z-30 hidden sm:flex flex-col items-center bg-[#84cfc8] text-white py-3 px-1.5 shadow-md rounded-l-md cursor-pointer hover:bg-[#68beb6] transition-colors"
       >
         <span className="font-bold text-xs tracking-tighter mb-1.5">W.</span>
@@ -958,32 +795,26 @@ export function WebGLTextHero({ onScrollToProjects, onNavigateToSection }: WebGL
         </span>
       </motion.div>
 
-      {/* 3. Center Interactive Text Tornado-to-Name & Disintegration Canvas (100% Unobstructed) */}
+      {/* 3. Center Interactive Fine-Particle Convergence & Disintegration Canvas */}
       <div className="absolute inset-0 w-full h-full z-10 flex items-center justify-center pointer-events-auto">
         <canvas
           ref={canvasRef}
           className="w-full h-full block md:cursor-none"
-          title="Move cursor or touch text to disintegrate into white balls and watch it reconstruct"
+          title="Move cursor or touch text to disintegrate into fine white dots and watch it reconstruct"
         />
       </div>
 
       {/* Seamless Bottom Atmospheric Feather into the Thesis Section */}
       <div className="pointer-events-none absolute inset-x-0 bottom-0 h-56 bg-gradient-to-b from-transparent via-black/75 to-black z-10" />
 
-      {/* 4. Bottom Intro Text & Reach Out Link (Reveals smoothly once tornado locks into S Mohammed Saheem) */}
+      {/* 4. Bottom Intro Text & Reach Out Link */}
       <motion.footer
-        initial={{ opacity: 0, y: 18, filter: 'blur(6px)' }}
-        animate={
-          isIntroComplete
-            ? { opacity: 1, y: 0, filter: 'blur(0px)' }
-            : { opacity: 0, y: 18, filter: 'blur(6px)' }
-        }
-        transition={{ duration: 0.7, delay: 0.08, ease: [0.16, 1, 0.3, 1] }}
-        className={`relative z-20 flex flex-col sm:flex-row justify-between items-stretch sm:items-end gap-3.5 sm:gap-6 w-full ${
-          isIntroComplete ? 'pointer-events-none' : 'pointer-events-none'
-        }`}
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 1.2, delay: 0.45, ease: [0.22, 1, 0.36, 1] }}
+        className="relative z-20 flex flex-col sm:flex-row justify-between items-stretch sm:items-end gap-3.5 sm:gap-6 w-full pointer-events-none"
       >
-        <div className={isIntroComplete ? 'pointer-events-auto max-w-md' : 'pointer-events-none max-w-md'}>
+        <div className="pointer-events-auto max-w-md">
           {/* Mobile Compact Status + Stack Line */}
           <div className="flex md:hidden items-center gap-2 text-[9.5px] font-mono uppercase tracking-[0.18em] text-neutral-300 mb-1.5">
             <span className="w-1.5 h-1.5 bg-white inline-block shrink-0" />
@@ -1004,11 +835,7 @@ export function WebGLTextHero({ onScrollToProjects, onNavigateToSection }: WebGL
         </div>
 
         {/* Mobile Compact Action Pair (< 640px) */}
-        <div
-          className={`grid grid-cols-2 gap-2.5 sm:hidden pt-0.5 ${
-            isIntroComplete ? 'pointer-events-auto' : 'pointer-events-none'
-          }`}
-        >
+        <div className="grid grid-cols-2 gap-2.5 sm:hidden pointer-events-auto pt-0.5">
           <button
             type="button"
             onClick={() => handleHeroNav('instrument', 'THE BUILD · FLAGSHIP SYSTEMS')}
@@ -1026,7 +853,7 @@ export function WebGLTextHero({ onScrollToProjects, onNavigateToSection }: WebGL
         </div>
 
         {/* Tablet & Desktop Scroll CTA (>= 640px) */}
-        <div className={`hidden sm:block ${isIntroComplete ? 'pointer-events-auto' : 'pointer-events-none'}`}>
+        <div className="hidden sm:block pointer-events-auto">
           <Magnetic strength={0.3} radius={25}>
             <button
               onClick={() => handleHeroNav('thesis', 'THE THESIS · ENGINEERING PORTFOLIO')}
