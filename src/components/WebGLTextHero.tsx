@@ -15,8 +15,8 @@ interface TextParticle {
   homeY: number;
   startX: number;
   startY: number;
-  driftX: number;
-  driftY: number;
+  ctrlX: number;
+  ctrlY: number;
   x: number;
   y: number;
   vx: number;
@@ -31,13 +31,14 @@ interface TextParticle {
   delay: number;
 }
 
-// Calm, slow, non-abrupt duration for fine dots to gently ease into "S Mohammed Saheem"
-const GENTLE_SETTLE_DURATION = 3.2;
+// Smooth, unhurried duration for fine dots from all 4 corners to form "S Mohammed Saheem"
+const NAME_FORMATION_DURATION = 3.35;
 
 export function WebGLTextHero({ onScrollToProjects, onNavigateToSection }: WebGLTextHeroProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [isHeroMenuOpen, setIsHeroMenuOpen] = useState(false);
+  const [isNameFormed, setIsNameFormed] = useState(false);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -62,8 +63,8 @@ export function WebGLTextHero({ onScrollToProjects, onNavigateToSection }: WebGL
     const gCtx = glowSprite.getContext('2d');
     if (gCtx) {
       const grad = gCtx.createRadialGradient(12, 12, 0, 12, 12, 12);
-      grad.addColorStop(0, 'rgba(255, 255, 255, 0.55)');
-      grad.addColorStop(0.35, 'rgba(255, 255, 255, 0.18)');
+      grad.addColorStop(0, 'rgba(255, 255, 255, 0.5)');
+      grad.addColorStop(0.38, 'rgba(255, 255, 255, 0.15)');
       grad.addColorStop(1, 'rgba(255, 255, 255, 0)');
       gCtx.fillStyle = grad;
       gCtx.fillRect(0, 0, 24, 24);
@@ -91,7 +92,32 @@ export function WebGLTextHero({ onScrollToProjects, onNavigateToSection }: WebGL
       fontFamily: "'Charles Rosie', 'Charles Rosie Regular', 'Orange Avenue', 'Arexa', serif",
     };
 
-    // Rasterizes crisp text to offscreen canvas and extracts fine particle grid
+    // Generates a starting coordinate anchored toward the 4 corners & outer perimeter of the viewport
+    const createCornerOrigin = (index: number, w: number, h: number, homeX: number, homeY: number) => {
+      const cornerIdx = index % 4; // 0: Top-Left, 1: Top-Right, 2: Bottom-Left, 3: Bottom-Right
+      const cornerBaseX = cornerIdx === 0 || cornerIdx === 2 ? -w * 0.06 : w * 1.06;
+      const cornerBaseY = cornerIdx === 0 || cornerIdx === 1 ? -h * 0.06 : h * 1.06;
+
+      // Spread organically from the chosen corner across the outer quadrant so dots fill all 4 corners
+      const randSpreadX = (Math.pow(Math.random(), 1.15) * 0.58) * w * (cornerBaseX < w * 0.5 ? 1 : -1);
+      const randSpreadY = (Math.pow(Math.random(), 1.15) * 0.58) * h * (cornerBaseY < h * 0.5 ? 1 : -1);
+
+      const startX = cornerBaseX + randSpreadX;
+      const startY = cornerBaseY + randSpreadY;
+
+      // Quadratic Bezier control point for a silky, flowing curved trajectory into the letterform
+      const midX = (startX + homeX) * 0.5;
+      const midY = (startY + homeY) * 0.5;
+      const dx = homeX - startX;
+      const dy = homeY - startY;
+      const perpScale = (Math.random() - 0.5) * 0.28;
+      const ctrlX = midX - dy * perpScale;
+      const ctrlY = midY + dx * perpScale;
+
+      return { startX, startY, ctrlX, ctrlY };
+    };
+
+    // Rasterizes crisp text to offscreen canvas and extracts high-density fine particle grid
     const rasterizeAndSampleParticles = (preserveIntroPositions = false) => {
       if (!textCanvas || !textCtx) return;
 
@@ -154,8 +180,8 @@ export function WebGLTextHero({ onScrollToProjects, onNavigateToSection }: WebGL
       const imgData = textCtx.getImageData(boxLeft, boxTop, boxW, boxH);
       const data = imgData.data;
 
-      // Fine density step for delicate pinpoint dots
-      const step = Math.max(4, Math.round(4.8 * (dpr / 1.5)));
+      // High-density fine sampling step (~2.8x more fine dots than before)
+      const step = Math.max(2, Math.round((isMobile ? 3.1 : 2.9) * (dpr / 1.5)));
       const prevParticles = particles;
       const newParticles: TextParticle[] = [];
       let pCount = 0;
@@ -165,52 +191,59 @@ export function WebGLTextHero({ onScrollToProjects, onNavigateToSection }: WebGL
           const idx = (py * boxW + px) * 4;
           const alpha = data[idx + 3];
 
-          if (alpha > 120) {
+          if (alpha > 110) {
             const homeX = (boxLeft + px) / dpr;
             const homeY = (boxTop + py) / dpr;
 
-            // Fine, delicate dot radius (0.9px to 1.45px) — never bulky
-            const size = 0.9 + Math.random() * 0.55;
+            // Fine, delicate pinpoint dot radius (0.75px to 1.25px)
+            const size = 0.75 + Math.random() * 0.5;
 
             const existing =
               preserveIntroPositions && prevParticles.length > 0
                 ? prevParticles[pCount % prevParticles.length]
                 : null;
 
-            // Soft, airy random dispersion around the canvas
-            const angle = Math.random() * Math.PI * 2;
-            const spreadRadiusX = (0.12 + Math.pow(Math.random(), 0.85) * 0.42) * width;
-            const spreadRadiusY = (0.12 + Math.pow(Math.random(), 0.85) * 0.42) * height;
+            let startX: number;
+            let startY: number;
+            let ctrlX: number;
+            let ctrlY: number;
 
-            const startX = existing
-              ? existing.startX
-              : centerX + Math.cos(angle) * spreadRadiusX + (Math.random() - 0.5) * 60;
-            const startY = existing
-              ? existing.startY
-              : centerY + Math.sin(angle) * spreadRadiusY + (Math.random() - 0.5) * 60;
+            if (existing) {
+              startX = existing.startX;
+              startY = existing.startY;
+              // Recompute control point smoothly toward updated home glyph
+              const midX = (startX + homeX) * 0.5;
+              const midY = (startY + homeY) * 0.5;
+              ctrlX = (existing.ctrlX + midX) * 0.5;
+              ctrlY = (existing.ctrlY + midY) * 0.5;
+            } else {
+              const origin = createCornerOrigin(pCount, width, height, homeX, homeY);
+              startX = origin.startX;
+              startY = origin.startY;
+              ctrlX = origin.ctrlX;
+              ctrlY = origin.ctrlY;
+            }
 
-            const driftX = existing ? existing.driftX : (Math.random() - 0.5) * 28;
-            const driftY = existing ? existing.driftY : (Math.random() - 0.5) * 28;
-            const delay = existing ? existing.delay : Math.random() * 0.45;
+            const delay = existing ? existing.delay : Math.random() * 0.55;
 
             newParticles.push({
               homeX,
               homeY,
               startX,
               startY,
-              driftX,
-              driftY,
+              ctrlX,
+              ctrlY,
               x: existing ? existing.x : startX,
               y: existing ? existing.y : startY,
               vx: 0,
               vy: 0,
               size,
-              baseAlpha: (alpha / 255) * (0.75 + Math.random() * 0.25),
+              baseAlpha: (alpha / 255) * (0.78 + Math.random() * 0.22),
               displaced: introDone ? 0 : 1,
-              springK: 0.042 + Math.random() * 0.02,
+              springK: 0.044 + Math.random() * 0.02,
               damping: 0.9 + Math.random() * 0.03,
               wanderAngle: Math.random() * Math.PI * 2,
-              wanderSpeed: (0.01 + Math.random() * 0.015) * (Math.random() < 0.5 ? 1 : -1),
+              wanderSpeed: (0.01 + Math.random() * 0.014) * (Math.random() < 0.5 ? 1 : -1),
               delay,
             });
             pCount++;
@@ -337,16 +370,18 @@ export function WebGLTextHero({ onScrollToProjects, onNavigateToSection }: WebGL
       ctx.clearRect(0, 0, width, height);
 
       // =======================================================================
-      // PHASE A: SLOW, SMOOTH EASE-IN-OUT CONVERGENCE OF FINE DOTS INTO NAME
+      // PHASE A: FINE DOTS STREAMING SMOOTHLY FROM ALL 4 CORNERS INTO THE NAME
       // =======================================================================
       if (!introDone) {
-        // Soft, progressive fade-in of the solid crisp letterforms only in the final 35% of settling
-        const solidTextAlpha = Math.max(
+        // Cross-fade the crisp solid typography only in the final 30% as dots settle
+        const solidRaw = Math.max(
           0,
-          Math.min(1, (introElapsed - GENTLE_SETTLE_DURATION * 0.65) / (GENTLE_SETTLE_DURATION * 0.35))
+          Math.min(
+            1,
+            (introElapsed - NAME_FORMATION_DURATION * 0.7) / (NAME_FORMATION_DURATION * 0.3)
+          )
         );
-        // Smooth sine ease for the solid glyph cross-dissolve
-        const easedSolidAlpha = 0.5 - 0.5 * Math.cos(solidTextAlpha * Math.PI);
+        const easedSolidAlpha = 0.5 - 0.5 * Math.cos(solidRaw * Math.PI);
 
         if (easedSolidAlpha > 0.01 && textCanvas) {
           ctx.save();
@@ -355,44 +390,42 @@ export function WebGLTextHero({ onScrollToProjects, onNavigateToSection }: WebGL
           ctx.restore();
         }
 
-        const effectiveDuration = GENTLE_SETTLE_DURATION - 0.45;
+        const flightDuration = NAME_FORMATION_DURATION - 0.55;
 
         for (let i = 0; i < particles.length; i++) {
           const p = particles[i];
           const localTime = Math.max(0, introElapsed - p.delay);
-          const t = Math.min(1, localTime / effectiveDuration);
+          const t = Math.min(1, localTime / flightDuration);
 
-          // Pure, ultra-smooth ease-in-out (sine + cubic blend) — starts slowly, glides smoothly, settles gently
+          // Ultra-silky Sine + Quintic ease-in-out blend (zero abruptness at start or finish)
           const easeSine = 0.5 - 0.5 * Math.cos(t * Math.PI);
-          const easeCubic = t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
-          const ease = easeSine * 0.55 + easeCubic * 0.45;
+          const easeQuint =
+            t < 0.5 ? 16 * t * t * t * t * t : 1 - Math.pow(-2 * t + 2, 5) / 2;
+          const e = easeSine * 0.5 + easeQuint * 0.5;
+          const invE = 1 - e;
 
-          // Gentle ambient float that fades to zero as the dot eases into its letter position
-          const floatEnvelope = Math.sin(t * Math.PI) * (1 - ease);
-          const curX =
-            p.startX + (p.homeX - p.startX) * ease + p.driftX * floatEnvelope;
-          const curY =
-            p.startY + (p.homeY - p.startY) * ease + p.driftY * floatEnvelope;
-
-          p.x = curX;
-          p.y = curY;
-          p.displaced = 1 - ease;
+          // Quadratic Bezier curve interpolation from corner -> control arc -> home glyph
+          p.x = invE * invE * p.startX + 2 * invE * e * p.ctrlX + e * e * p.homeX;
+          p.y = invE * invE * p.startY + 2 * invE * e * p.ctrlY + e * e * p.homeY;
+          p.displaced = invE;
         }
 
-        // Subtle soft glow on a subset of fine dots while airborne
-        const dotFadeIn = Math.min(1, introElapsed / 0.55);
-        ctx.save();
-        ctx.globalAlpha = dotFadeIn * (1 - easedSolidAlpha * 0.85);
+        // Smooth fade-in at the very start (0.0s -> 0.65s) and gentle handoff to solid text at end
+        const fadeEnvelope = Math.min(1, introElapsed / 0.65) * (1 - easedSolidAlpha * 0.88);
 
-        for (let i = 0; i < particles.length; i += 3) {
+        ctx.save();
+        ctx.globalAlpha = fadeEnvelope;
+
+        // Subtle luminous halo on a light stride for high-density 120fps performance
+        for (let i = 0; i < particles.length; i += 6) {
           const p = particles[i];
           if (p.displaced > 0.05) {
-            const gR = p.size * 2.8;
+            const gR = p.size * 2.5;
             ctx.drawImage(glowSprite, p.x - gR, p.y - gR, gR * 2, gR * 2);
           }
         }
 
-        // Draw crisp, fine white dots
+        // Single batched draw of all fine pinpoint white dots
         ctx.fillStyle = '#ffffff';
         ctx.beginPath();
         for (let i = 0; i < particles.length; i++) {
@@ -404,7 +437,7 @@ export function WebGLTextHero({ onScrollToProjects, onNavigateToSection }: WebGL
         ctx.fill();
         ctx.restore();
 
-        if (introElapsed >= GENTLE_SETTLE_DURATION) {
+        if (introElapsed >= NAME_FORMATION_DURATION) {
           introDone = true;
           for (let i = 0; i < particles.length; i++) {
             particles[i].x = particles[i].homeX;
@@ -413,6 +446,7 @@ export function WebGLTextHero({ onScrollToProjects, onNavigateToSection }: WebGL
             particles[i].vy = 0;
             particles[i].displaced = 0;
           }
+          setIsNameFormed(true);
         }
 
         animId = requestAnimationFrame(render);
@@ -462,12 +496,12 @@ export function WebGLTextHero({ onScrollToProjects, onNavigateToSection }: WebGL
             const normX = dist > 0.001 ? mdx / dist : Math.random() - 0.5;
             const normY = dist > 0.001 ? mdy / dist : Math.random() - 0.5;
 
-            const kickMag = (4.2 + mouseSpeed * 0.42) * force;
+            const kickMag = (4.0 + mouseSpeed * 0.4) * force;
             p.vx += normX * kickMag;
             p.vy += normY * kickMag;
 
-            p.vx += mouse.vx * 0.25 * force;
-            p.vy += mouse.vy * 0.25 * force;
+            p.vx += mouse.vx * 0.24 * force;
+            p.vy += mouse.vy * 0.24 * force;
 
             p.displaced = 1.0;
           }
@@ -477,8 +511,8 @@ export function WebGLTextHero({ onScrollToProjects, onNavigateToSection }: WebGL
           hasDisplaced = true;
 
           p.wanderAngle += p.wanderSpeed * dt;
-          p.vx += Math.cos(p.wanderAngle) * 0.04 * p.displaced * dt;
-          p.vy += Math.sin(p.wanderAngle) * 0.04 * p.displaced * dt;
+          p.vx += Math.cos(p.wanderAngle) * 0.035 * p.displaced * dt;
+          p.vy += Math.sin(p.wanderAngle) * 0.035 * p.displaced * dt;
 
           const returnDx = p.homeX - p.x;
           const returnDy = p.homeY - p.y;
@@ -512,7 +546,7 @@ export function WebGLTextHero({ onScrollToProjects, onNavigateToSection }: WebGL
         for (let i = 0; i < particles.length; i++) {
           const p = particles[i];
           if (p.displaced > 0.04) {
-            const holeR = p.size * (1.35 + p.displaced * 1.8);
+            const holeR = p.size * (1.35 + p.displaced * 1.75);
             ctx.moveTo(p.homeX + holeR, p.homeY);
             ctx.arc(p.homeX, p.homeY, holeR, 0, Math.PI * 2);
           }
@@ -521,10 +555,10 @@ export function WebGLTextHero({ onScrollToProjects, onNavigateToSection }: WebGL
 
         ctx.globalCompositeOperation = 'source-over';
 
-        for (let i = 0; i < particles.length; i += 2) {
+        for (let i = 0; i < particles.length; i += 4) {
           const p = particles[i];
           if (p.displaced > 0.04) {
-            const glowR = p.size * 2.4;
+            const glowR = p.size * 2.3;
             ctx.drawImage(glowSprite, p.x - glowR, p.y - glowR, glowR * 2, glowR * 2);
           }
         }
@@ -597,11 +631,11 @@ export function WebGLTextHero({ onScrollToProjects, onNavigateToSection }: WebGL
       ref={containerRef}
       className="relative w-full h-[100svh] sm:h-screen bg-transparent text-white flex flex-col justify-between p-4 sm:p-8 lg:p-14 select-none overflow-hidden"
     >
-      {/* Decorative ambient star near title (Desktop only) */}
+      {/* Decorative ambient star near title (Slowly fades in only AFTER name is formed) */}
       <motion.div
         initial={{ opacity: 0 }}
-        animate={{ opacity: 0.8 }}
-        transition={{ duration: 1.4, delay: 0.8, ease: 'easeInOut' }}
+        animate={isNameFormed ? { opacity: 0.8 } : { opacity: 0 }}
+        transition={{ duration: 1.4, delay: 0.35, ease: [0.22, 1, 0.36, 1] }}
         className="absolute top-[28vh] left-[26vw] z-20 pointer-events-none hidden md:block"
       >
         <svg className="w-3.5 h-3.5 fill-white" viewBox="0 0 24 24">
@@ -609,12 +643,14 @@ export function WebGLTextHero({ onScrollToProjects, onNavigateToSection }: WebGL
         </svg>
       </motion.div>
 
-      {/* 1. Top Navigation Bar */}
+      {/* 1. Top Navigation Bar (Slowly fades in only AFTER "S Mohammed Saheem" is formed) */}
       <motion.header
-        initial={{ opacity: 0, y: -8 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 1.1, delay: 0.3, ease: [0.22, 1, 0.36, 1] }}
-        className="relative z-30 flex items-center justify-between w-full"
+        initial={{ opacity: 0, y: -10 }}
+        animate={isNameFormed ? { opacity: 1, y: 0 } : { opacity: 0, y: -10 }}
+        transition={{ duration: 1.35, delay: 0.1, ease: [0.22, 1, 0.36, 1] }}
+        className={`relative z-30 flex items-center justify-between w-full ${
+          isNameFormed ? 'pointer-events-auto' : 'pointer-events-none'
+        }`}
       >
         {/* Left Brand Emblem: 4-Point Star + Mobile Compact Identity */}
         <div className="flex items-center gap-2.5">
@@ -782,12 +818,14 @@ export function WebGLTextHero({ onScrollToProjects, onNavigateToSection }: WebGL
         )}
       </AnimatePresence>
 
-      {/* Awwwards-style Ribbon Badge on Right Hero Edge */}
+      {/* Awwwards-style Ribbon Badge on Right Hero Edge (Slowly fades in only AFTER name is formed) */}
       <motion.div
         initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ duration: 1.1, delay: 0.5, ease: 'easeInOut' }}
-        className="absolute right-0 top-1/2 -translate-y-1/2 z-30 hidden sm:flex flex-col items-center bg-[#84cfc8] text-white py-3 px-1.5 shadow-md rounded-l-md cursor-pointer hover:bg-[#68beb6] transition-colors"
+        animate={isNameFormed ? { opacity: 1 } : { opacity: 0 }}
+        transition={{ duration: 1.35, delay: 0.3, ease: [0.22, 1, 0.36, 1] }}
+        className={`absolute right-0 top-1/2 -translate-y-1/2 z-30 hidden sm:flex flex-col items-center bg-[#84cfc8] text-white py-3 px-1.5 shadow-md rounded-l-md cursor-pointer hover:bg-[#68beb6] transition-colors ${
+          isNameFormed ? 'pointer-events-auto' : 'pointer-events-none'
+        }`}
       >
         <span className="font-bold text-xs tracking-tighter mb-1.5">W.</span>
         <span className="text-[9px] font-bold tracking-widest uppercase [writing-mode:vertical-lr] rotate-180 opacity-90">
@@ -795,7 +833,7 @@ export function WebGLTextHero({ onScrollToProjects, onNavigateToSection }: WebGL
         </span>
       </motion.div>
 
-      {/* 3. Center Interactive Fine-Particle Convergence & Disintegration Canvas */}
+      {/* 3. Center High-Density Fine-Particle Convergence & Disintegration Canvas */}
       <div className="absolute inset-0 w-full h-full z-10 flex items-center justify-center pointer-events-auto">
         <canvas
           ref={canvasRef}
@@ -807,14 +845,14 @@ export function WebGLTextHero({ onScrollToProjects, onNavigateToSection }: WebGL
       {/* Seamless Bottom Atmospheric Feather into the Thesis Section */}
       <div className="pointer-events-none absolute inset-x-0 bottom-0 h-56 bg-gradient-to-b from-transparent via-black/75 to-black z-10" />
 
-      {/* 4. Bottom Intro Text & Reach Out Link */}
+      {/* 4. Bottom Intro Text & Reach Out Link (Slowly fades in only AFTER "S Mohammed Saheem" is formed) */}
       <motion.footer
-        initial={{ opacity: 0, y: 10 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 1.2, delay: 0.45, ease: [0.22, 1, 0.36, 1] }}
+        initial={{ opacity: 0, y: 12 }}
+        animate={isNameFormed ? { opacity: 1, y: 0 } : { opacity: 0, y: 12 }}
+        transition={{ duration: 1.45, delay: 0.25, ease: [0.22, 1, 0.36, 1] }}
         className="relative z-20 flex flex-col sm:flex-row justify-between items-stretch sm:items-end gap-3.5 sm:gap-6 w-full pointer-events-none"
       >
-        <div className="pointer-events-auto max-w-md">
+        <div className={isNameFormed ? 'pointer-events-auto max-w-md' : 'pointer-events-none max-w-md'}>
           {/* Mobile Compact Status + Stack Line */}
           <div className="flex md:hidden items-center gap-2 text-[9.5px] font-mono uppercase tracking-[0.18em] text-neutral-300 mb-1.5">
             <span className="w-1.5 h-1.5 bg-white inline-block shrink-0" />
@@ -835,7 +873,11 @@ export function WebGLTextHero({ onScrollToProjects, onNavigateToSection }: WebGL
         </div>
 
         {/* Mobile Compact Action Pair (< 640px) */}
-        <div className="grid grid-cols-2 gap-2.5 sm:hidden pointer-events-auto pt-0.5">
+        <div
+          className={`grid grid-cols-2 gap-2.5 sm:hidden pt-0.5 ${
+            isNameFormed ? 'pointer-events-auto' : 'pointer-events-none'
+          }`}
+        >
           <button
             type="button"
             onClick={() => handleHeroNav('instrument', 'THE BUILD · FLAGSHIP SYSTEMS')}
@@ -853,7 +895,7 @@ export function WebGLTextHero({ onScrollToProjects, onNavigateToSection }: WebGL
         </div>
 
         {/* Tablet & Desktop Scroll CTA (>= 640px) */}
-        <div className="hidden sm:block pointer-events-auto">
+        <div className={`hidden sm:block ${isNameFormed ? 'pointer-events-auto' : 'pointer-events-none'}`}>
           <Magnetic strength={0.3} radius={25}>
             <button
               onClick={() => handleHeroNav('thesis', 'THE THESIS · ENGINEERING PORTFOLIO')}
