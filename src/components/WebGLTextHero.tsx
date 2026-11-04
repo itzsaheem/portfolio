@@ -40,6 +40,32 @@ export function WebGLTextHero({ onScrollToProjects, onNavigateToSection }: WebGL
   const [isHeroMenuOpen, setIsHeroMenuOpen] = useState(false);
   const [isNameFormed, setIsNameFormed] = useState(false);
 
+  // Lock page scrolling completely until the dots stream in from all corners and finish forming the name
+  useEffect(() => {
+    if (isNameFormed) return;
+
+    const prevBodyOverflow = document.body.style.overflow;
+    const prevHtmlOverflow = document.documentElement.style.overflow;
+
+    document.body.style.overflow = 'hidden';
+    document.documentElement.style.overflow = 'hidden';
+
+    // Also prevent wheel / touch scroll gestures before the name is formed
+    const preventScroll = (e: Event) => {
+      e.preventDefault();
+    };
+
+    window.addEventListener('wheel', preventScroll, { passive: false });
+    window.addEventListener('touchmove', preventScroll, { passive: false });
+
+    return () => {
+      document.body.style.overflow = prevBodyOverflow;
+      document.documentElement.style.overflow = prevHtmlOverflow;
+      window.removeEventListener('wheel', preventScroll);
+      window.removeEventListener('touchmove', preventScroll);
+    };
+  }, [isNameFormed]);
+
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
