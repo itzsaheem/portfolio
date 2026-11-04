@@ -130,7 +130,7 @@ export function MagneticCursor() {
   const isPointer = cursorState.variant === 'pointer' || cursorState.variant === 'card';
 
   return (
-    <div className="pointer-events-none fixed inset-0 z-[999999] overflow-hidden select-none">
+    <div className="hidden md:block pointer-events-none fixed inset-0 z-[999999] overflow-hidden select-none">
       <motion.div
         className="absolute top-0 left-0 pointer-events-none flex items-center justify-center"
         style={{

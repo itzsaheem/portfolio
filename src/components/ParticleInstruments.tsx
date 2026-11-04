@@ -302,3 +302,333 @@ export function ParticleWaveHorizon({ className = '' }: { className?: string }) 
     </div>
   );
 }
+
+/**
+ * Renders a subtle, live animated ASCII architecture & telemetry backdrop
+ * inside the Route & Query Waterfall console. Pauses automatically off-screen.
+ */
+export function AsciiWaterfallBackdrop({ className = '' }: { className?: string }) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    const container = containerRef.current;
+    if (!canvas || !container) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    let animId = 0;
+    let isVisible = false;
+    let width = container.clientWidth || 800;
+    let height = container.clientHeight || 520;
+
+    const TOKENS = [
+      '01',
+      '10',
+      'SELECT',
+      'RLS_OK',
+      'WS_ACK',
+      '200_OK',
+      'PG_POOL',
+      'REDIS',
+      'DRIZZLE',
+      'FASTIFY',
+      'JWT_SIG',
+      'OOP_SVC',
+      '::',
+      '┼',
+      '─',
+      '│',
+      '┌',
+      '┘',
+      'λ',
+      '≡',
+      '[SYN]',
+      '[ACK]',
+    ];
+
+    interface AsciiColumn {
+      x: number;
+      y: number;
+      speed: number;
+      tokens: string[];
+      alpha: number;
+    }
+
+    let columns: AsciiColumn[] = [];
+
+    const initColumns = () => {
+      width = container.clientWidth || 800;
+      height = container.clientHeight || 520;
+      const dpr = Math.min(window.devicePixelRatio || 1, 1.5);
+      canvas.width = Math.floor(width * dpr);
+      canvas.height = Math.floor(height * dpr);
+      canvas.style.width = `${width}px`;
+      canvas.style.height = `${height}px`;
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.scale(dpr, dpr);
+
+      const spacing = width < 640 ? 64 : 84;
+      const colCount = Math.max(5, Math.floor(width / spacing));
+      columns = Array.from({ length: colCount }, (_, idx) => {
+        const len = 5 + (idx % 4);
+        return {
+          x: idx * spacing + 18,
+          y: Math.random() * height,
+          speed: 0.28 + Math.random() * 0.42,
+          tokens: Array.from(
+            { length: len },
+            () => TOKENS[Math.floor(Math.random() * TOKENS.length)]
+          ),
+          alpha: 0.045 + Math.random() * 0.06,
+        };
+      });
+    };
+
+    initColumns();
+    window.addEventListener('resize', initColumns, { passive: true });
+
+    let frame = 0;
+    const render = () => {
+      if (!isVisible) {
+        animId = 0;
+        return;
+      }
+
+      frame += 1;
+      ctx.clearRect(0, 0, width, height);
+      ctx.font = '10px "JetBrains Mono", monospace';
+      ctx.textBaseline = 'top';
+
+      // Subtle horizontal ASCII grid scanlines
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.025)';
+      ctx.lineWidth = 1;
+      for (let gy = 36; gy < height; gy += 64) {
+        ctx.beginPath();
+        ctx.moveTo(0, gy);
+        ctx.lineTo(width, gy);
+        ctx.stroke();
+      }
+
+      for (let i = 0; i < columns.length; i++) {
+        const col = columns[i];
+        col.y += col.speed;
+        if (col.y > height + 80) {
+          col.y = -120;
+        }
+
+        // Occasionally mutate a token for living ASCII feel
+        if ((frame + i * 13) % 45 === 0) {
+          const mutIdx = Math.floor(Math.random() * col.tokens.length);
+          col.tokens[mutIdx] = TOKENS[Math.floor(Math.random() * TOKENS.length)];
+        }
+
+        for (let t = 0; t < col.tokens.length; t++) {
+          const ty = col.y - t * 22;
+          if (ty < -20 || ty > height + 20) continue;
+          const isHead = t === 0;
+          const alpha = isHead ? col.alpha * 1.9 : col.alpha * (1 - t / (col.tokens.length + 1));
+          ctx.fillStyle = `rgba(255, 255, 255, ${alpha.toFixed(3)})`;
+          ctx.fillText(col.tokens[t], col.x, ty);
+        }
+      }
+
+      animId = requestAnimationFrame(render);
+    };
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const entry = entries[0];
+        if (!entry) return;
+        isVisible = entry.isIntersecting;
+        if (isVisible && !animId) {
+          animId = requestAnimationFrame(render);
+        } else if (!isVisible && animId) {
+          cancelAnimationFrame(animId);
+          animId = 0;
+        }
+      },
+      { threshold: 0.01 }
+    );
+
+    observer.observe(container);
+
+    return () => {
+      observer.disconnect();
+      if (animId) cancelAnimationFrame(animId);
+      window.removeEventListener('resize', initColumns);
+    };
+  }, []);
+
+  return (
+    <div
+      ref={containerRef}
+      className={`pointer-events-none select-none overflow-hidden ${className}`}
+      style={{
+        maskImage:
+          'radial-gradient(ellipse 90% 85% at 50% 50%, black 35%, transparent 100%)',
+        WebkitMaskImage:
+          'radial-gradient(ellipse 90% 85% at 50% 50%, black 35%, transparent 100%)',
+      }}
+    >
+      <canvas ref={canvasRef} className="w-full h-full block" />
+    </div>
+  );
+}
+
+/**
+ * Renders an animated grayscale dotted aurora wave field flowing upward from the
+ * bottom of the footer, creating a cohesive monochrome stippled aurora horizon.
+ */
+export function DottedAuroraFooter({ className = '' }: { className?: string }) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    const container = containerRef.current;
+    if (!canvas || !container) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    let animId = 0;
+    let isVisible = false;
+    let width = container.clientWidth || window.innerWidth;
+    let height = container.clientHeight || 340;
+
+    const handleResize = () => {
+      if (!canvas || !container) return;
+      width = container.clientWidth || window.innerWidth;
+      height = container.clientHeight || 340;
+      const dpr = Math.min(window.devicePixelRatio || 1, 1.5);
+      canvas.width = Math.floor(width * dpr);
+      canvas.height = Math.floor(height * dpr);
+      canvas.style.width = `${width}px`;
+      canvas.style.height = `${height}px`;
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.scale(dpr, dpr);
+    };
+
+    handleResize();
+    window.addEventListener('resize', handleResize, { passive: true });
+
+    // Generate structured grid + organic aurora wave particles rising from the bottom
+    const numParticles = 920;
+    const particles = Array.from({ length: numParticles }, () => {
+      const u = Math.random(); // horizontal normalized [0, 1]
+      const v = Math.pow(Math.random(), 1.25); // vertical concentration near the bottom [0 = bottom, 1 = top]
+      const ribbon: 0 | 1 | 2 = v < 0.28 ? 2 : v < 0.64 ? 1 : 0;
+      return {
+        u,
+        v,
+        ribbon,
+        phase: Math.random() * Math.PI * 2,
+        driftSpeed: 0.002 + Math.random() * 0.0035,
+        size: ribbon === 2 ? 2.1 : ribbon === 1 ? 1.6 : 1.2,
+      };
+    });
+
+    const bucketColors = [
+      'rgba(210, 216, 224, 0.14)',
+      'rgba(235, 238, 244, 0.32)',
+      'rgba(255, 255, 255, 0.62)',
+    ];
+
+    let t = 0;
+    const render = () => {
+      if (!isVisible) {
+        animId = 0;
+        return;
+      }
+
+      t += 0.014;
+      ctx.clearRect(0, 0, width, height);
+
+      // 1. Soft grayscale aurora radial glow rising from bottom center/wings
+      const auroraGrad = ctx.createRadialGradient(
+        width * 0.5,
+        height * 1.05,
+        10,
+        width * 0.5,
+        height * 0.95,
+        Math.max(width * 0.62, 360)
+      );
+      auroraGrad.addColorStop(0, 'rgba(255, 255, 255, 0.13)');
+      auroraGrad.addColorStop(0.45, 'rgba(200, 206, 215, 0.055)');
+      auroraGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+      ctx.fillStyle = auroraGrad;
+      ctx.fillRect(0, 0, width, height);
+
+      // 2. Stippled monochrome aurora dot curtains undulating upward from the bottom
+      for (let b = 0; b < 3; b++) {
+        ctx.fillStyle = bucketColors[b];
+        ctx.beginPath();
+
+        for (let i = 0; i < numParticles; i++) {
+          const p = particles[i];
+          if (p.ribbon !== b) continue;
+
+          // Upward flowing phase
+          const currentV = (p.v + t * p.driftSpeed * 12) % 1;
+          const x = p.u * width + Math.sin(t * 0.9 + p.phase) * 8;
+
+          // Multi-harmonic aurora wave crest anchored near the bottom and billowing upward
+          const auroraCrest =
+            Math.sin(p.u * Math.PI * 2.5 + t) * 34 +
+            Math.cos(p.u * Math.PI * 5.2 - t * 0.75) * 18 +
+            Math.sin(p.u * Math.PI * 1.3 - t * 0.4) * 22;
+
+          const baseBottomOffset = currentV * (height * 0.78);
+          const y = height - 10 - baseBottomOffset + auroraCrest * (0.35 + currentV * 0.65);
+
+          if (y > 8 && y < height - 2) {
+            ctx.rect(x, y, p.size, p.size);
+          }
+        }
+        ctx.fill();
+      }
+
+      animId = requestAnimationFrame(render);
+    };
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const entry = entries[0];
+        if (!entry) return;
+        isVisible = entry.isIntersecting;
+        if (isVisible && !animId) {
+          animId = requestAnimationFrame(render);
+        } else if (!isVisible && animId) {
+          cancelAnimationFrame(animId);
+          animId = 0;
+        }
+      },
+      { threshold: 0.01 }
+    );
+
+    observer.observe(container);
+
+    return () => {
+      observer.disconnect();
+      if (animId) cancelAnimationFrame(animId);
+      window.removeEventListener('resize', handleResize);
+    };
+  }, []);
+
+  return (
+    <div
+      ref={containerRef}
+      className={`pointer-events-none select-none overflow-hidden ${className}`}
+      style={{
+        maskImage:
+          'linear-gradient(to top, black 0%, black 65%, transparent 100%)',
+        WebkitMaskImage:
+          'linear-gradient(to top, black 0%, black 65%, transparent 100%)',
+      }}
+    >
+      <canvas ref={canvasRef} className="w-full h-full block" />
+    </div>
+  );
+}
+

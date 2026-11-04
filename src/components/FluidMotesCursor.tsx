@@ -255,7 +255,7 @@ export function FluidMotesCursor() {
   return (
     <canvas
       ref={canvasRef}
-      className="fixed inset-0 pointer-events-none z-30 block w-full h-full select-none"
+      className="hidden md:block fixed inset-0 pointer-events-none z-30 w-full h-full select-none"
     />
   );
 }

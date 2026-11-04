@@ -1,8 +1,10 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
+import { motion, AnimatePresence } from 'motion/react';
 import { Magnetic } from './Magnetic';
 import { CHARLES_ROSIE_FONT_DATA_URI } from '../fonts/charlesRosieDataUri';
 import { ORANGE_AVENUE_FONT_DATA_URI } from '../fonts/orangeAvenueDataUri';
 import { AREXA_FONT_DATA_URI } from '../fonts/arexaDataUri';
+import { PROFILE_DATA } from '../data/portfolioData';
 
 interface WebGLTextHeroProps {
   onScrollToProjects?: () => void;
@@ -28,6 +30,7 @@ interface TextParticle {
 export function WebGLTextHero({ onScrollToProjects, onNavigateToSection }: WebGLTextHeroProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const [isHeroMenuOpen, setIsHeroMenuOpen] = useState(false);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -91,7 +94,7 @@ export function WebGLTextHero({ onScrollToProjects, onNavigateToSection }: WebGL
       textCtx.clearRect(0, 0, width, height);
 
       const isMobile = width < 768;
-      const targetBlockHeight = height * (isMobile ? 0.34 : 0.44);
+      const targetBlockHeight = height * (isMobile ? 0.23 : 0.44);
       let fontSize = targetBlockHeight * 0.48;
 
       textCtx.font = `normal ${fontSize}px ${CONFIG.fontFamily}`;
@@ -99,12 +102,12 @@ export function WebGLTextHero({ onScrollToProjects, onNavigateToSection }: WebGL
         (textCtx as any).letterSpacing = '0.015em';
       }
 
-      // Ensure line1 and line2 fit comfortably within 88% of viewport width on any screen
+      // Ensure line1 and line2 fit comfortably with generous side margins on mobile & desktop
       const measuredW = Math.max(
         textCtx.measureText(CONFIG.line1).width,
         textCtx.measureText(CONFIG.line2).width
       );
-      const maxAllowedWidth = width * (isMobile ? 0.88 : 0.9);
+      const maxAllowedWidth = width * (isMobile ? 0.78 : 0.9);
       if (measuredW > maxAllowedWidth && measuredW > 0) {
         fontSize = fontSize * (maxAllowedWidth / measuredW);
         textCtx.font = `normal ${fontSize}px ${CONFIG.fontFamily}`;
@@ -116,8 +119,9 @@ export function WebGLTextHero({ onScrollToProjects, onNavigateToSection }: WebGL
       textCtx.textBaseline = 'alphabetic';
 
       const centerX = width * 0.5;
+      const centerY = isMobile ? height * 0.43 : height * 0.5;
       const totalVisualHeight = lineGap + fontSize * 0.72;
-      const startY1 = (height * 0.5) - (totalVisualHeight * 0.5) + fontSize * 0.72;
+      const startY1 = centerY - (totalVisualHeight * 0.5) + fontSize * 0.72;
       const startY2 = startY1 + lineGap;
 
       textCtx.fillText(CONFIG.line1, centerX, startY1);
@@ -127,8 +131,8 @@ export function WebGLTextHero({ onScrollToProjects, onNavigateToSection }: WebGL
       const pad = 40;
       const boxLeft = Math.max(0, Math.floor((width * 0.05) * dpr));
       const boxRight = Math.min(textCanvas.width, Math.ceil((width * 0.95) * dpr));
-      const boxTop = Math.max(0, Math.floor(((height * 0.5) - (totalVisualHeight * 0.55) - pad) * dpr));
-      const boxBottom = Math.min(textCanvas.height, Math.ceil(((height * 0.5) + (totalVisualHeight * 0.55) + pad) * dpr));
+      const boxTop = Math.max(0, Math.floor((centerY - (totalVisualHeight * 0.55) - pad) * dpr));
+      const boxBottom = Math.min(textCanvas.height, Math.ceil((centerY + (totalVisualHeight * 0.55) + pad) * dpr));
 
       const boxW = boxRight - boxLeft;
       const boxH = boxBottom - boxTop;
@@ -442,36 +446,47 @@ export function WebGLTextHero({ onScrollToProjects, onNavigateToSection }: WebGL
     };
   }, []);
 
-  return (
-    <div 
-      ref={containerRef}
-      className="relative w-full h-screen bg-transparent text-white flex flex-col justify-between p-6 sm:p-8 lg:p-14 select-none overflow-hidden"
-    >
-      {/* 4-Point Star in Top-Left (Exact match to reference) */}
-      <div className="absolute top-8 left-8 sm:top-12 sm:left-14 z-20 pointer-events-none">
-        <svg className="w-6 h-6 sm:w-8 sm:h-8 fill-white" viewBox="0 0 24 24">
-          <path d="M12 0 L14.5 9.5 L24 12 L14.5 14.5 L12 24 L9.5 14.5 L0 12 L9.5 9.5 Z" />
-        </svg>
-      </div>
+  const handleHeroNav = (sectionId: string, label: string) => {
+    setIsHeroMenuOpen(false);
+    if (onNavigateToSection) {
+      onNavigateToSection(sectionId, label);
+    } else if (sectionId === 'contact') {
+      document.getElementById('contact')?.scrollIntoView({ behavior: 'smooth' });
+    } else {
+      onScrollToProjects?.();
+    }
+  };
 
-      {/* Decorative ambient star near title */}
+  return (
+    <div
+      ref={containerRef}
+      className="relative w-full h-[100svh] sm:h-screen bg-transparent text-white flex flex-col justify-between p-4 sm:p-8 lg:p-14 select-none overflow-hidden"
+    >
+      {/* Decorative ambient star near title (Desktop only) */}
       <div className="absolute top-[28vh] left-[26vw] z-20 pointer-events-none opacity-80 hidden md:block">
         <svg className="w-3.5 h-3.5 fill-white" viewBox="0 0 24 24">
           <path d="M12 0 L14 10 L24 12 L14 14 L12 24 L10 14 L0 12 L10 10 Z" />
         </svg>
       </div>
 
-      {/* 1. Top Minimalist Navigation (Top Right) */}
-      <header className="relative z-20 flex justify-end items-center w-full">
-        <nav className="flex items-center gap-5 sm:gap-8 lg:gap-10 font-sans font-bold text-[11px] sm:text-xs uppercase tracking-[0.2em]">
+      {/* 1. Top Navigation Bar (Bespoke Mobile Hamburger Row vs Desktop Inline Nav) */}
+      <header className="relative z-30 flex items-center justify-between w-full">
+        {/* Left Brand Emblem: 4-Point Star + Mobile Compact Identity */}
+        <div className="flex items-center gap-2.5">
+          <svg className="w-5 h-5 sm:w-8 sm:h-8 fill-white shrink-0" viewBox="0 0 24 24">
+            <path d="M12 0 L14.5 9.5 L24 12 L14.5 14.5 L12 24 L9.5 14.5 L0 12 L9.5 9.5 Z" />
+          </svg>
+          <span className="md:hidden text-[10px] font-mono uppercase tracking-[0.2em] text-neutral-300">
+            SAHEEM · BLR
+          </span>
+        </div>
+
+        {/* Desktop & Tablet Navigation (>= 768px) */}
+        <nav className="hidden md:flex items-center gap-8 lg:gap-10 font-sans font-bold text-xs uppercase tracking-[0.2em]">
           <Magnetic strength={0.3} radius={20}>
             <button
               type="button"
-              onClick={() =>
-                onNavigateToSection
-                  ? onNavigateToSection('instrument', 'THE BUILD · FLAGSHIP SYSTEMS')
-                  : onScrollToProjects?.()
-              }
+              onClick={() => handleHeroNav('instrument', 'THE BUILD · FLAGSHIP SYSTEMS')}
               data-magnetic
               className="text-white hover:opacity-50 transition-opacity py-1 whitespace-nowrap shrink-0 uppercase"
             >
@@ -481,11 +496,7 @@ export function WebGLTextHero({ onScrollToProjects, onNavigateToSection }: WebGL
           <Magnetic strength={0.3} radius={20}>
             <button
               type="button"
-              onClick={() =>
-                onNavigateToSection
-                  ? onNavigateToSection('capabilities', 'CAPABILITY INDEX · TECH STACK')
-                  : onScrollToProjects?.()
-              }
+              onClick={() => handleHeroNav('capabilities', 'CAPABILITY INDEX · TECH STACK')}
               data-magnetic
               className="text-white hover:opacity-50 transition-opacity py-1 whitespace-nowrap shrink-0 uppercase"
             >
@@ -495,11 +506,7 @@ export function WebGLTextHero({ onScrollToProjects, onNavigateToSection }: WebGL
           <Magnetic strength={0.3} radius={20}>
             <button
               type="button"
-              onClick={() =>
-                onNavigateToSection
-                  ? onNavigateToSection('experience', 'THE WORK · MANIFEST & EXPERIENCE')
-                  : onScrollToProjects?.()
-              }
+              onClick={() => handleHeroNav('experience', 'THE WORK · MANIFEST & EXPERIENCE')}
               data-magnetic
               className="text-white hover:opacity-50 transition-opacity py-1 whitespace-nowrap shrink-0 uppercase"
             >
@@ -509,11 +516,7 @@ export function WebGLTextHero({ onScrollToProjects, onNavigateToSection }: WebGL
           <Magnetic strength={0.3} radius={20}>
             <button
               type="button"
-              onClick={() =>
-                onNavigateToSection
-                  ? onNavigateToSection('contact', 'DIRECT CHANNEL · CONTACT')
-                  : document.getElementById('contact')?.scrollIntoView({ behavior: 'smooth' })
-              }
+              onClick={() => handleHeroNav('contact', 'DIRECT CHANNEL · CONTACT')}
               data-magnetic
               className="text-white border border-white px-3 py-1.5 rounded-sm hover:bg-white hover:text-black transition-colors whitespace-nowrap shrink-0 uppercase"
             >
@@ -521,7 +524,123 @@ export function WebGLTextHero({ onScrollToProjects, onNavigateToSection }: WebGL
             </button>
           </Magnetic>
         </nav>
+
+        {/* Mobile Hamburger Button (< 768px) */}
+        <button
+          type="button"
+          aria-label="Toggle navigation menu"
+          onClick={() => setIsHeroMenuOpen((prev) => !prev)}
+          className="md:hidden min-h-[42px] min-w-[42px] px-3 border border-white/25 bg-black/80 backdrop-blur-md flex items-center justify-center gap-2.5 active:scale-95 transition-transform"
+        >
+          <span className="text-[10px] font-mono uppercase tracking-[0.18em] text-white">
+            {isHeroMenuOpen ? 'CLOSE' : 'MENU'}
+          </span>
+          <div className="w-4 h-3 flex flex-col justify-between items-end">
+            <span
+              className={`h-[1.5px] bg-white transition-all duration-200 ${
+                isHeroMenuOpen ? 'w-4 translate-y-[5px] rotate-45' : 'w-4'
+              }`}
+            />
+            <span
+              className={`h-[1.5px] bg-white transition-all duration-200 ${
+                isHeroMenuOpen ? 'opacity-0 w-0' : 'w-3'
+              }`}
+            />
+            <span
+              className={`h-[1.5px] bg-white transition-all duration-200 ${
+                isHeroMenuOpen ? 'w-4 -translate-y-[5.5px] -rotate-45' : 'w-4'
+              }`}
+            />
+          </div>
+        </button>
       </header>
+
+      {/* Mobile Eyebrow Pill Above Center Title (< 768px) */}
+      <div className="md:hidden relative z-20 flex justify-center mt-4 pointer-events-none">
+        <div className="inline-flex items-center gap-2 px-3 py-1 border border-white/15 bg-black/70 backdrop-blur-sm text-[9px] font-mono uppercase tracking-[0.2em] text-neutral-300">
+          <span className="w-1.5 h-1.5 bg-white inline-block" />
+          <span>FULL-STACK ENGINEER · SIH &apos;25 FINALIST</span>
+        </div>
+      </div>
+
+      {/* Full-Screen Mobile Hamburger Drawer inside Hero (< 768px) */}
+      <AnimatePresence>
+        {isHeroMenuOpen && (
+          <motion.div
+            initial={{ opacity: 0, y: -12 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -12 }}
+            transition={{ duration: 0.25 }}
+            className="fixed inset-0 z-50 bg-[#040404]/98 backdrop-blur-xl flex flex-col justify-between p-5 md:hidden"
+          >
+            <div className="flex items-center justify-between pb-4 border-b border-white/10">
+              <div className="flex items-center gap-2.5">
+                <svg className="w-4 h-4 fill-white" viewBox="0 0 24 24">
+                  <path d="M12 0 L14.5 9.5 L24 12 L14.5 14.5 L12 24 L9.5 14.5 L0 12 L9.5 9.5 Z" />
+                </svg>
+                <span className="text-xs font-mono uppercase tracking-[0.18em] text-white font-bold">
+                  {PROFILE_DATA.name}
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsHeroMenuOpen(false)}
+                className="min-h-[40px] px-3 border border-white/25 bg-white text-black text-[10px] font-mono font-bold uppercase tracking-[0.18em]"
+              >
+                CLOSE ✕
+              </button>
+            </div>
+
+            <div className="my-auto py-4 space-y-1">
+              <div className="text-[9px] font-mono uppercase tracking-[0.22em] text-neutral-500 mb-2">
+                NAVIGATION DIRECTORY
+              </div>
+              {[
+                { id: 'instrument', num: '01', title: 'Flagship Projects', sub: 'Solvyn · CMS · FarmAura · Bot or Not' },
+                { id: 'waterfall', num: '02', title: 'Route & Query Waterfall', sub: 'Live SQL, Auth & Latency Telemetry' },
+                { id: 'capabilities', num: '03', title: 'Capability Index', sub: 'Java · Python · TypeScript · SQL · OOP' },
+                { id: 'experience', num: '04', title: 'Work & Experience', sub: 'Client Production · SIH Finals · Internship' },
+                { id: 'notes', num: '05', title: 'Field Notes & Verify', sub: 'Architecture Logs & Live Deployments' },
+                { id: 'contact', num: '06', title: 'Direct Contact', sub: PROFILE_DATA.email },
+              ].map((item) => (
+                <button
+                  key={item.id}
+                  type="button"
+                  onClick={() => handleHeroNav(item.id, item.title.toUpperCase())}
+                  className="w-full py-3 border-b border-white/[0.08] flex items-center justify-between text-left active:bg-white/[0.05] transition-colors"
+                >
+                  <div className="flex items-baseline gap-3 min-w-0">
+                    <span className="text-[10px] font-mono text-neutral-500 shrink-0">{item.num}</span>
+                    <div className="min-w-0">
+                      <div className="text-base font-bold text-white tracking-tight truncate">
+                        {item.title}
+                      </div>
+                      <div className="text-[10px] font-mono text-neutral-400 truncate">
+                        {item.sub}
+                      </div>
+                    </div>
+                  </div>
+                  <span className="text-xs font-mono text-neutral-400 shrink-0 ml-2">→</span>
+                </button>
+              ))}
+            </div>
+
+            <div className="pt-4 border-t border-white/10 flex items-center justify-between text-[11px] font-mono text-neutral-400">
+              <a href={`mailto:${PROFILE_DATA.email}`} className="text-white font-bold truncate">
+                {PROFILE_DATA.email}
+              </a>
+              <div className="flex items-center gap-4 shrink-0">
+                <a href={PROFILE_DATA.github} target="_blank" rel="noopener noreferrer" className="hover:text-white">
+                  GH ↗
+                </a>
+                <a href={PROFILE_DATA.linkedin} target="_blank" rel="noopener noreferrer" className="hover:text-white">
+                  IN ↗
+                </a>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Awwwards-style Ribbon Badge on Right Hero Edge */}
       <div className="absolute right-0 top-1/2 -translate-y-1/2 z-30 hidden sm:flex flex-col items-center bg-[#84cfc8] text-white py-3 px-1.5 shadow-md rounded-l-md cursor-pointer hover:bg-[#68beb6] transition-colors">
@@ -533,9 +652,9 @@ export function WebGLTextHero({ onScrollToProjects, onNavigateToSection }: WebGL
 
       {/* 3. Center Interactive Text Disintegration & Reconstruction Canvas */}
       <div className="absolute inset-0 w-full h-full z-10 flex items-center justify-center pointer-events-auto">
-        <canvas 
-          ref={canvasRef} 
-          className="w-full h-full block cursor-none"
+        <canvas
+          ref={canvasRef}
+          className="w-full h-full block md:cursor-none"
           title="Move cursor over text to disintegrate into white balls and watch it reconstruct"
         />
       </div>
@@ -543,32 +662,58 @@ export function WebGLTextHero({ onScrollToProjects, onNavigateToSection }: WebGL
       {/* Seamless Bottom Atmospheric Feather into the Thesis Section */}
       <div className="pointer-events-none absolute inset-x-0 bottom-0 h-56 bg-gradient-to-b from-transparent via-black/75 to-black z-10" />
 
-      {/* 4. Bottom Intro Text & Reach Out Link */}
-      <footer className="relative z-20 flex flex-col sm:flex-row justify-between items-start sm:items-end gap-6 w-full pointer-events-none">
-        <p className="max-w-md font-sans text-xs sm:text-[13px] text-neutral-300 leading-relaxed font-medium pointer-events-auto">
-          Full-stack software engineer building across Java, Python, TypeScript, Node.js, and relational SQL databases. Experienced with scalable backend APIs, RLS data security, and high-performance web systems. Feel free to{' '}
+      {/* 4. Bottom Intro Text & Reach Out Link (Compact Mobile Card vs Desktop Split Footer) */}
+      <footer className="relative z-20 flex flex-col sm:flex-row justify-between items-stretch sm:items-end gap-4 sm:gap-6 w-full pointer-events-none">
+        <div className="pointer-events-auto max-w-md">
+          {/* Mobile Compact Stack Strip */}
+          <div className="flex md:hidden flex-wrap items-center gap-1.5 text-[10px] font-mono text-neutral-400 mb-2">
+            <span>Java</span>
+            <span>·</span>
+            <span>Python</span>
+            <span>·</span>
+            <span>TypeScript</span>
+            <span>·</span>
+            <span>React</span>
+            <span>·</span>
+            <span>PostgreSQL / MySQL</span>
+          </div>
+
+          <p className="font-sans text-[11.5px] sm:text-[13px] text-neutral-300 leading-relaxed font-medium">
+            Full-stack software engineer building across Java, Python, TypeScript, Node.js, and relational SQL databases. Experienced with scalable backend APIs, RLS data security, and high-performance web systems. Feel free to{' '}
+            <button
+              type="button"
+              onClick={() => handleHeroNav('contact', 'DIRECT CHANNEL · CONTACT')}
+              data-magnetic
+              className="underline font-bold text-white hover:text-neutral-300 transition-colors inline-block"
+            >
+              reach out here
+            </button>.
+          </p>
+        </div>
+
+        {/* Mobile Compact Action Pair (< 640px) */}
+        <div className="grid grid-cols-2 gap-2.5 sm:hidden pointer-events-auto pt-1">
           <button
             type="button"
-            onClick={() =>
-              onNavigateToSection
-                ? onNavigateToSection('contact', 'DIRECT CHANNEL · CONTACT')
-                : document.getElementById('contact')?.scrollIntoView({ behavior: 'smooth' })
-            }
-            data-magnetic
-            className="underline font-bold text-white hover:text-cyan transition-colors inline-block"
+            onClick={() => handleHeroNav('instrument', 'THE BUILD · FLAGSHIP SYSTEMS')}
+            className="min-h-[42px] bg-white text-black text-[10px] font-mono font-bold uppercase tracking-[0.16em] flex items-center justify-center"
           >
-            reach out here
-          </button>.
-        </p>
+            EXPLORE WORK ↓
+          </button>
+          <button
+            type="button"
+            onClick={() => handleHeroNav('contact', 'DIRECT CHANNEL · CONTACT')}
+            className="min-h-[42px] border border-white/25 bg-black/70 text-white text-[10px] font-mono uppercase tracking-[0.16em] flex items-center justify-center"
+          >
+            CONTACT +
+          </button>
+        </div>
 
-        <div className="pointer-events-auto">
+        {/* Tablet & Desktop Scroll CTA (>= 640px) */}
+        <div className="hidden sm:block pointer-events-auto">
           <Magnetic strength={0.3} radius={25}>
             <button
-              onClick={() =>
-                onNavigateToSection
-                  ? onNavigateToSection('thesis', 'THE THESIS · ENGINEERING PORTFOLIO')
-                  : onScrollToProjects?.()
-              }
+              onClick={() => handleHeroNav('thesis', 'THE THESIS · ENGINEERING PORTFOLIO')}
               data-magnetic
               className="flex items-center gap-3 text-[10px] font-sans font-black uppercase tracking-[0.25em] text-neutral-400 hover:text-white transition-colors py-2 whitespace-nowrap shrink-0"
             >
