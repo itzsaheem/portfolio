@@ -17,9 +17,111 @@ import {
 } from './ParticleInstruments';
 
 const EASE_OUT_EXPO: [number, number, number, number] = [0.16, 1, 0.3, 1];
+const SPRING_SNAPPY = { type: 'spring' as const, stiffness: 380, damping: 32, mass: 0.7 };
 
 interface EngineeringPortfolioProps {
   onNavigateWithTransition?: (sectionId: string, label?: string) => void;
+}
+
+/**
+ * Unique Animation 1: Cryptographic Character Decode Kicker
+ * Decodes characters left-to-right from monochrome glyphs when scrolled into view.
+ */
+function ScrambleKicker({ text, className = '' }: { text: string; className?: string }) {
+  const [display, setDisplay] = useState(text);
+  const ref = useRef<HTMLSpanElement>(null);
+  const hasAnimatedRef = useRef(false);
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const glyphs = '01/:·_#+=×';
+    let frameId = 0;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const entry = entries[0];
+        if (!entry?.isIntersecting || hasAnimatedRef.current) return;
+        hasAnimatedRef.current = true;
+
+        let step = 0;
+        const totalSteps = 18;
+        const tick = () => {
+          step += 1;
+          const progress = step / totalSteps;
+          const revealedCount = Math.floor(progress * text.length);
+          let nextStr = '';
+          for (let i = 0; i < text.length; i++) {
+            if (text[i] === ' ' || i < revealedCount) {
+              nextStr += text[i];
+            } else {
+              nextStr += glyphs[(i + step) % glyphs.length];
+            }
+          }
+          setDisplay(nextStr);
+          if (step < totalSteps) {
+            frameId = window.setTimeout(tick, 22);
+          } else {
+            setDisplay(text);
+          }
+        };
+        tick();
+      },
+      { threshold: 0.2 }
+    );
+
+    observer.observe(el);
+    return () => {
+      observer.disconnect();
+      if (frameId) window.clearTimeout(frameId);
+    };
+  }, [text]);
+
+  return (
+    <span ref={ref} className={className}>
+      {display}
+    </span>
+  );
+}
+
+/**
+ * Unique Animation 2: Interactive Radial Cursor Spotlight Surface
+ * Tracks pointer coordinates inside any card to render a soft radial light halo.
+ */
+function SpotlightSurface({
+  children,
+  className = '',
+}: {
+  children: React.ReactNode;
+  className?: string;
+  key?: React.Key;
+}) {
+  const boxRef = useRef<HTMLDivElement>(null);
+
+  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    const el = boxRef.current;
+    if (!el) return;
+    const rect = el.getBoundingClientRect();
+    el.style.setProperty('--spot-x', `${e.clientX - rect.left}px`);
+    el.style.setProperty('--spot-y', `${e.clientY - rect.top}px`);
+  };
+
+  return (
+    <div
+      ref={boxRef}
+      onMouseMove={handleMouseMove}
+      className={`group/spot relative overflow-hidden ${className}`}
+    >
+      <div
+        className="pointer-events-none absolute -inset-px opacity-0 group-hover/spot:opacity-100 transition-opacity duration-300 z-0"
+        style={{
+          background:
+            'radial-gradient(320px circle at var(--spot-x, 50%) var(--spot-y, 50%), rgba(255,255,255,0.085), transparent 70%)',
+        }}
+      />
+      <div className="relative z-10 h-full">{children}</div>
+    </div>
+  );
 }
 
 const ACHIEVEMENT_PILLARS = [
@@ -55,6 +157,21 @@ const ACHIEVEMENT_PILLARS = [
     detail:
       'Wrote, debugged, and tested production code under senior engineer mentorship using structured Git workflows, code reviews, and iterative sprints.',
   },
+];
+
+const MARQUEE_ITEMS = [
+  'JAVA',
+  'PYTHON',
+  'TYPESCRIPT',
+  'REACT 19',
+  'POSTGRESQL ROW-LEVEL SECURITY',
+  'MYSQL',
+  'FASTIFY WEBSOCKETS',
+  'DRIZZLE ORM',
+  'REDIS MATCHMAKING',
+  'OBJECT-ORIENTED PROGRAMMING',
+  'GITHUB ACTIONS CI/CD',
+  'SIH 2025 NATIONAL GRAND FINALIST',
 ];
 
 export function EngineeringPortfolio({ onNavigateWithTransition }: EngineeringPortfolioProps) {
@@ -438,10 +555,10 @@ export function EngineeringPortfolio({ onNavigateWithTransition }: EngineeringPo
       <AnimatePresence>
         {isMobileMenuOpen && (
           <motion.div
-            initial={{ opacity: 0, y: -14 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -14 }}
-            transition={{ duration: 0.25, ease: EASE_OUT_EXPO }}
+            initial={{ opacity: 0, clipPath: 'inset(0 0 100% 0)' }}
+            animate={{ opacity: 1, clipPath: 'inset(0 0 0% 0)' }}
+            exit={{ opacity: 0, clipPath: 'inset(0 0 100% 0)' }}
+            transition={{ duration: 0.36, ease: EASE_OUT_EXPO }}
             className="fixed inset-0 z-50 bg-[#040404]/98 backdrop-blur-xl flex flex-col justify-between p-5 md:hidden overflow-y-auto"
           >
             {/* Top Bar */}
@@ -475,9 +592,12 @@ export function EngineeringPortfolio({ onNavigateWithTransition }: EngineeringPo
               </div>
               <div className="grid grid-cols-2 gap-2">
                 {FLAGSHIP_PROJECTS.map((proj, idx) => (
-                  <button
+                  <motion.button
                     key={proj.id}
                     type="button"
+                    initial={{ opacity: 0, scale: 0.94 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    transition={{ duration: 0.28, delay: 0.04 + idx * 0.04, ease: EASE_OUT_EXPO }}
                     onClick={() => handleSelectProject(proj.id, 'track')}
                     className={`p-2.5 border text-left transition-colors ${
                       idx === activeProjectIndex
@@ -489,7 +609,7 @@ export function EngineeringPortfolio({ onNavigateWithTransition }: EngineeringPo
                       {proj.numeral} · {proj.period}
                     </div>
                     <div className="text-xs font-bold truncate mt-0.5">{proj.titleWhite}</div>
-                  </button>
+                  </motion.button>
                 ))}
               </div>
             </div>
@@ -507,10 +627,13 @@ export function EngineeringPortfolio({ onNavigateWithTransition }: EngineeringPo
                 { id: 'experience', num: '05', label: 'Work & Experience', sub: 'Client CMS, SIH Finals & Internship' },
                 { id: 'notes', num: '06', label: 'Field Notes & Links', sub: 'Architecture logs & deployments' },
                 { id: 'contact', num: '07', label: 'Direct Channel · Contact', sub: PROFILE_DATA.email },
-              ].map((item) => (
-                <button
+              ].map((item, idx) => (
+                <motion.button
                   key={item.id}
                   type="button"
+                  initial={{ opacity: 0, x: -16 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ duration: 0.3, delay: 0.06 + idx * 0.04, ease: EASE_OUT_EXPO }}
                   onClick={() => scrollToSection(item.id)}
                   className="w-full py-2.5 border-b border-white/[0.07] flex items-center justify-between text-left active:bg-white/[0.05]"
                 >
@@ -528,7 +651,7 @@ export function EngineeringPortfolio({ onNavigateWithTransition }: EngineeringPo
                     </div>
                   </div>
                   <span className="text-xs font-mono text-neutral-400 shrink-0 ml-2">→</span>
-                </button>
+                </motion.button>
               ))}
             </div>
 
@@ -554,19 +677,19 @@ export function EngineeringPortfolio({ onNavigateWithTransition }: EngineeringPo
       </AnimatePresence>
 
       {/* =====================================================================
-          SECTION 1: THE THESIS & THREE DOORS (Compact on Mobile, Full-Scale on Desktop)
+          SECTION 1: THE THESIS & THREE DOORS (With Scramble Kicker & Spotlight Cards)
       ===================================================================== */}
       <section id="thesis" className="relative w-full pt-14 sm:pt-28 lg:pt-36 pb-14 sm:pb-28">
         <div className="w-full px-4 sm:px-8 lg:px-14 xl:px-20">
           <motion.div
-            initial={{ opacity: 0, y: 24 }}
-            whileInView={{ opacity: 1, y: 0 }}
+            initial={{ opacity: 0, y: 24, filter: 'blur(6px)' }}
+            whileInView={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
             viewport={{ once: true, margin: '-40px' }}
-            transition={{ duration: 0.65, ease: EASE_OUT_EXPO }}
+            transition={{ duration: 0.7, ease: EASE_OUT_EXPO }}
           >
             <div className="flex items-center gap-2.5 text-[10px] sm:text-[11px] font-mono uppercase tracking-[0.22em] text-neutral-400 mb-3 sm:mb-6">
               <span className="w-1.5 h-1.5 sm:w-2 sm:h-2 bg-white inline-block shrink-0" />
-              <span>01 · THE THESIS</span>
+              <ScrambleKicker text="01 · THE THESIS" />
             </div>
 
             <h2 className="text-[22px] sm:text-5xl lg:text-6xl xl:text-[64px] font-bold tracking-[-0.03em] leading-[1.14] sm:leading-[1.06] max-w-6xl text-balance mb-6 sm:mb-16">
@@ -574,41 +697,51 @@ export function EngineeringPortfolio({ onNavigateWithTransition }: EngineeringPo
               <span className="text-[#8E9299]">engineering discipline</span>.
             </h2>
 
-            {/* Proof Strip: Compact Cards on Mobile, 3-Column Grid on Tablet/Desktop */}
+            {/* Proof Strip: Interactive Radial Spotlight Cards */}
             <div className="grid grid-cols-1 md:grid-cols-3 border border-white/[0.09] bg-white/[0.01]">
-              <div className="p-4 sm:p-8 lg:p-10 border-b md:border-b-0 md:border-r border-white/[0.09] hover:bg-white/[0.02] transition-colors">
-                <div className="text-[9px] sm:text-[10px] font-mono uppercase tracking-[0.2em] text-neutral-400 mb-1.5 sm:mb-3">
-                  01 · END-TO-END OWNERSHIP
-                </div>
-                <p className="text-xs sm:text-base text-neutral-200 leading-relaxed">
-                  Database schema design through API logic and UI deployment — the SQL migrations, backend services, and React commits are by the same hands.
-                </p>
-              </div>
-
-              <div className="p-4 sm:p-8 lg:p-10 border-b md:border-b-0 md:border-r border-white/[0.09] hover:bg-white/[0.02] transition-colors">
-                <div className="text-[9px] sm:text-[10px] font-mono uppercase tracking-[0.2em] text-neutral-400 mb-1.5 sm:mb-3">
-                  02 · PRODUCTION VERIFIED
-                </div>
-                <p className="text-xs sm:text-base text-neutral-200 leading-relaxed">
-                  Shipped for a paying multi-branch clinic client with PostgreSQL Row-Level Security, GitHub Actions CI/CD backups, and live Vercel deployments.
-                </p>
-              </div>
-
-              <div className="p-4 sm:p-8 lg:p-10 hover:bg-white/[0.02] transition-colors">
-                <div className="text-[9px] sm:text-[10px] font-mono uppercase tracking-[0.2em] text-neutral-400 mb-1.5 sm:mb-3">
-                  03 · CORE CS + FULL STACK
-                </div>
-                <p className="text-xs sm:text-base text-neutral-200 leading-relaxed">
-                  Grounded in Data Structures & Algorithms, OOP, DBMS, and OS alongside TypeScript, React, Java, Python, MySQL, and PostgreSQL.
-                </p>
-              </div>
+              {[
+                {
+                  kicker: '01 · END-TO-END OWNERSHIP',
+                  body: 'Database schema design through API logic and UI deployment — the SQL migrations, backend services, and React commits are by the same hands.',
+                },
+                {
+                  kicker: '02 · PRODUCTION VERIFIED',
+                  body: 'Shipped for a paying multi-branch clinic client with PostgreSQL Row-Level Security, GitHub Actions CI/CD backups, and live Vercel deployments.',
+                },
+                {
+                  kicker: '03 · CORE CS + FULL STACK',
+                  body: 'Grounded in Data Structures & Algorithms, OOP, DBMS, and OS alongside TypeScript, React, Java, Python, MySQL, and PostgreSQL.',
+                },
+              ].map((proof, idx) => (
+                <SpotlightSurface
+                  key={proof.kicker}
+                  className={`${
+                    idx < 2 ? 'border-b md:border-b-0 md:border-r' : ''
+                  } border-white/[0.09]`}
+                >
+                  <motion.div
+                    initial={{ opacity: 0, y: 18 }}
+                    whileInView={{ opacity: 1, y: 0 }}
+                    viewport={{ once: true }}
+                    transition={{ duration: 0.5, delay: idx * 0.08, ease: EASE_OUT_EXPO }}
+                    className="p-4 sm:p-8 lg:p-10 h-full"
+                  >
+                    <div className="text-[9px] sm:text-[10px] font-mono uppercase tracking-[0.2em] text-neutral-400 mb-1.5 sm:mb-3">
+                      {proof.kicker}
+                    </div>
+                    <p className="text-xs sm:text-base text-neutral-200 leading-relaxed">
+                      {proof.body}
+                    </p>
+                  </motion.div>
+                </SpotlightSurface>
+              ))}
             </div>
           </motion.div>
 
           {/* Soft Feathered Divider */}
           <div className="my-10 sm:my-24 h-px w-full bg-gradient-to-r from-transparent via-white/12 to-transparent" />
 
-          {/* THREE DOORS (Compact Interactive Rows on Mobile, 3-Col Cards on Desktop) */}
+          {/* THREE DOORS (Shared layoutId Morphing Active Beam + Spotlight Hover) */}
           <motion.div
             initial={{ opacity: 0, y: 24 }}
             whileInView={{ opacity: 1, y: 0 }}
@@ -618,7 +751,7 @@ export function EngineeringPortfolio({ onNavigateWithTransition }: EngineeringPo
             <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-5 sm:mb-8">
               <div className="flex items-center gap-2.5 text-[10px] sm:text-[11px] font-mono uppercase tracking-[0.22em] text-neutral-400">
                 <span className="w-1.5 h-1.5 sm:w-2 sm:h-2 bg-white inline-block shrink-0" />
-                <span>THREE DOORS · QUICK ENTRY</span>
+                <ScrambleKicker text="THREE DOORS · QUICK ENTRY" />
               </div>
               <div className="hidden sm:block">
                 <ParticleEllipsoid width={260} height={130} glowIntensity={0.15} />
@@ -626,95 +759,106 @@ export function EngineeringPortfolio({ onNavigateWithTransition }: EngineeringPo
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 border border-white/[0.09] bg-white/[0.01]">
-              {/* Door 01 */}
-              <button
-                type="button"
-                onClick={() => {
-                  setActiveDoor(1);
-                  handleSelectProject('solvyn', 'track');
-                }}
-                data-magnetic
-                className={`group text-left p-4 sm:p-9 lg:p-11 border-b md:border-b-0 md:border-r border-white/[0.09] transition-all duration-300 hover:bg-white/[0.03] ${
-                  activeDoor === 1 ? 'bg-white/[0.03]' : ''
-                }`}
-              >
-                <div className="flex items-center justify-between text-[10px] sm:text-xs font-mono text-neutral-400 mb-2 sm:mb-6">
-                  <span>01 · PRODUCTS</span>
-                  <span className="group-hover:translate-x-1.5 transition-transform duration-200 text-white">
-                    →
-                  </span>
-                </div>
-                <h3 className="text-lg sm:text-3xl lg:text-4xl font-bold tracking-tight text-white mb-1.5 sm:mb-3">
-                  The products
-                </h3>
-                <p className="text-xs sm:text-base text-neutral-400 leading-relaxed">
-                  Solvyn (ERP & EdTech Platform), FarmAura (SIH 2025 Grand Finalist), and Bot or Not (Real-Time Turing Game).
-                </p>
-              </button>
+              {[
+                {
+                  doorNum: 1,
+                  tag: '01 · PRODUCTS',
+                  title: 'The products',
+                  desc: 'Solvyn (ERP & EdTech Platform), FarmAura (SIH 2025 Grand Finalist), and Bot or Not (Real-Time Turing Game).',
+                  onClick: () => {
+                    setActiveDoor(1);
+                    handleSelectProject('solvyn', 'track');
+                  },
+                },
+                {
+                  doorNum: 2,
+                  tag: '02 · CLIENT BUILD',
+                  title: 'The client build',
+                  desc: 'CMS (Clinic Management System) built for a paying client across 3 clinic branches with PostgreSQL RLS & GitHub Actions CI/CD.',
+                  onClick: () => {
+                    setActiveDoor(2);
+                    handleSelectProject('cms', 'track');
+                  },
+                },
+                {
+                  doorNum: 3,
+                  tag: '03 · CAPABILITIES',
+                  title: 'The stack & notes',
+                  desc: 'Java, Python, TypeScript, JavaScript, React, SQL (MySQL & PostgreSQL), DSA, OOP, DBMS, and architecture logs.',
+                  onClick: () => {
+                    setActiveDoor(3);
+                    scrollToSection('capabilities');
+                  },
+                },
+              ].map((door, idx) => {
+                const isSelected = activeDoor === door.doorNum;
+                return (
+                  <SpotlightSurface
+                    key={door.doorNum}
+                    className={`${
+                      idx < 2 ? 'border-b md:border-b-0 md:border-r' : ''
+                    } border-white/[0.09]`}
+                  >
+                    <button
+                      type="button"
+                      onClick={door.onClick}
+                      data-magnetic
+                      className={`relative w-full h-full group text-left p-4 sm:p-9 lg:p-11 transition-colors duration-300 ${
+                        isSelected ? 'bg-white/[0.03]' : 'hover:bg-white/[0.02]'
+                      }`}
+                    >
+                      {/* Shared layoutId Morphing Active Top Beam */}
+                      {isSelected && (
+                        <motion.div
+                          layoutId="active-door-beam"
+                          transition={SPRING_SNAPPY}
+                          className="absolute top-0 inset-x-0 h-[2px] bg-white shadow-[0_0_16px_rgba(255,255,255,0.8)]"
+                        />
+                      )}
 
-              {/* Door 02 */}
-              <button
-                type="button"
-                onClick={() => {
-                  setActiveDoor(2);
-                  handleSelectProject('cms', 'track');
-                }}
-                data-magnetic
-                className={`group text-left p-4 sm:p-9 lg:p-11 border-b md:border-b-0 md:border-r border-white/[0.09] transition-all duration-300 hover:bg-white/[0.03] ${
-                  activeDoor === 2 ? 'bg-white/[0.03]' : ''
-                }`}
-              >
-                <div className="flex items-center justify-between text-[10px] sm:text-xs font-mono text-neutral-400 mb-2 sm:mb-6">
-                  <span>02 · CLIENT BUILD</span>
-                  <span className="group-hover:translate-x-1.5 transition-transform duration-200 text-white">
-                    →
-                  </span>
-                </div>
-                <h3 className="text-lg sm:text-3xl lg:text-4xl font-bold tracking-tight text-white mb-1.5 sm:mb-3">
-                  The client build
-                </h3>
-                <p className="text-xs sm:text-base text-neutral-400 leading-relaxed">
-                  CMS (Clinic Management System) built for a paying client across 3 clinic branches with PostgreSQL RLS & GitHub Actions CI/CD.
-                </p>
-              </button>
-
-              {/* Door 03 */}
-              <button
-                type="button"
-                onClick={() => {
-                  setActiveDoor(3);
-                  scrollToSection('capabilities');
-                }}
-                data-magnetic
-                className={`group text-left p-4 sm:p-9 lg:p-11 transition-all duration-300 hover:bg-white/[0.03] ${
-                  activeDoor === 3 ? 'bg-white/[0.03]' : ''
-                }`}
-              >
-                <div className="flex items-center justify-between text-[10px] sm:text-xs font-mono text-neutral-400 mb-2 sm:mb-6">
-                  <span>03 · CAPABILITIES</span>
-                  <span className="group-hover:translate-x-1.5 transition-transform duration-200 text-white">
-                    →
-                  </span>
-                </div>
-                <h3 className="text-lg sm:text-3xl lg:text-4xl font-bold tracking-tight text-white mb-1.5 sm:mb-3">
-                  The stack & notes
-                </h3>
-                <p className="text-xs sm:text-base text-neutral-400 leading-relaxed">
-                  Java, Python, TypeScript, JavaScript, React, SQL (MySQL & PostgreSQL), DSA, OOP, DBMS, and architecture logs.
-                </p>
-              </button>
+                      <div className="flex items-center justify-between text-[10px] sm:text-xs font-mono text-neutral-400 mb-2 sm:mb-6">
+                        <span>{door.tag}</span>
+                        <span className="group-hover:translate-x-1.5 transition-transform duration-200 text-white">
+                          →
+                        </span>
+                      </div>
+                      <h3 className="text-lg sm:text-3xl lg:text-4xl font-bold tracking-tight text-white mb-1.5 sm:mb-3">
+                        {door.title}
+                      </h3>
+                      <p className="text-xs sm:text-base text-neutral-400 leading-relaxed">
+                        {door.desc}
+                      </p>
+                    </button>
+                  </SpotlightSurface>
+                );
+              })}
             </div>
           </motion.div>
         </div>
       </section>
 
-      {/* Full-Window Divider */}
-      <div className="w-full px-4 sm:px-8 lg:px-14 xl:px-20">
-        <div className="h-px w-full bg-gradient-to-r from-transparent via-white/12 to-transparent" />
+      {/* =====================================================================
+          UNIQUE ANIMATION 3: INFINITE ARCHITECTURAL CAPABILITY MARQUEE RIBBON
+      ===================================================================== */}
+      <div className="relative w-full border-y border-white/[0.08] bg-[#040404] py-3 sm:py-3.5 overflow-hidden select-none">
+        <div className="pointer-events-none absolute inset-y-0 left-0 w-16 sm:w-28 bg-gradient-to-r from-black to-transparent z-10" />
+        <div className="pointer-events-none absolute inset-y-0 right-0 w-16 sm:w-28 bg-gradient-to-l from-black to-transparent z-10" />
+        <motion.div
+          animate={{ x: ['0%', '-50%'] }}
+          transition={{ duration: 28, repeat: Infinity, ease: 'linear' }}
+          className="flex items-center gap-6 sm:gap-10 whitespace-nowrap w-max font-mono text-[10px] sm:text-[11px] uppercase tracking-[0.22em] text-neutral-400"
+        >
+          {[...MARQUEE_ITEMS, ...MARQUEE_ITEMS].map((item, idx) => (
+            <span key={idx} className="inline-flex items-center gap-6 sm:gap-10">
+              <span className="text-neutral-300">{item}</span>
+              <span className="text-neutral-600">·</span>
+            </span>
+          ))}
+        </motion.div>
       </div>
 
       {/* =====================================================================
-          SECTION 2: CAPABILITY INDEX (Compact Accordion on Mobile, Expansive on Desktop)
+          SECTION 2: CAPABILITY INDEX (Staggered Cascade & Smooth Accordion)
       ===================================================================== */}
       <section id="capabilities" className="relative w-full py-12 sm:py-28 lg:py-32">
         <div className="w-full px-4 sm:px-8 lg:px-14 xl:px-20 relative z-10">
@@ -727,7 +871,7 @@ export function EngineeringPortfolio({ onNavigateWithTransition }: EngineeringPo
             <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-6 sm:mb-10">
               <div className="flex items-center gap-2.5 text-[10px] sm:text-[11px] font-mono uppercase tracking-[0.22em] text-neutral-400">
                 <span className="w-1.5 h-1.5 sm:w-2 sm:h-2 bg-white inline-block shrink-0" />
-                <span>02 · CAPABILITY INDEX & TECHNICAL SKILLS</span>
+                <ScrambleKicker text="02 · CAPABILITY INDEX & TECHNICAL SKILLS" />
               </div>
               <div className="hidden sm:block">
                 <ParticleEllipsoid width={250} height={125} glowIntensity={0.14} />
@@ -778,7 +922,7 @@ export function EngineeringPortfolio({ onNavigateWithTransition }: EngineeringPo
                           initial={{ height: 0, opacity: 0 }}
                           animate={{ height: 'auto', opacity: 1 }}
                           exit={{ height: 0, opacity: 0 }}
-                          transition={{ duration: 0.3, ease: EASE_OUT_EXPO }}
+                          transition={{ duration: 0.34, ease: EASE_OUT_EXPO }}
                           className="overflow-hidden"
                         >
                           <div className="pb-5 sm:pb-11 pl-6 sm:pl-12 lg:pl-16 grid grid-cols-1 lg:grid-cols-12 gap-5 sm:gap-8 text-xs sm:text-sm pt-1">
@@ -787,13 +931,20 @@ export function EngineeringPortfolio({ onNavigateWithTransition }: EngineeringPo
                                 CORE LANGUAGES, FRAMEWORKS & DATABASES
                               </div>
                               <div className="flex flex-wrap gap-1.5 sm:gap-2">
-                                {cap.primarySkills.map((skill) => (
-                                  <span
+                                {cap.primarySkills.map((skill, sIdx) => (
+                                  <motion.span
                                     key={skill}
-                                    className="border border-white/15 bg-white/[0.03] px-2.5 py-1 text-[10px] sm:text-xs font-mono text-white"
+                                    initial={{ opacity: 0, scale: 0.9, y: 6 }}
+                                    animate={{ opacity: 1, scale: 1, y: 0 }}
+                                    transition={{
+                                      duration: 0.25,
+                                      delay: sIdx * 0.03,
+                                      ease: EASE_OUT_EXPO,
+                                    }}
+                                    className="border border-white/15 bg-white/[0.03] hover:bg-white hover:text-black transition-colors px-2.5 py-1 text-[10px] sm:text-xs font-mono text-white"
                                   >
                                     {skill}
-                                  </span>
+                                  </motion.span>
                                 ))}
                               </div>
                             </div>
@@ -804,10 +955,20 @@ export function EngineeringPortfolio({ onNavigateWithTransition }: EngineeringPo
                               </div>
                               <ul className="space-y-2 text-[11px] sm:text-sm text-neutral-300 leading-relaxed">
                                 {cap.engineeringPractices.map((practice, i) => (
-                                  <li key={i} className="flex items-start gap-2.5">
+                                  <motion.li
+                                    key={i}
+                                    initial={{ opacity: 0, x: -10 }}
+                                    animate={{ opacity: 1, x: 0 }}
+                                    transition={{
+                                      duration: 0.28,
+                                      delay: 0.06 + i * 0.05,
+                                      ease: EASE_OUT_EXPO,
+                                    }}
+                                    className="flex items-start gap-2.5"
+                                  >
                                     <span className="w-1 h-1 sm:w-1.5 sm:h-1.5 bg-white/80 mt-1.5 sm:mt-2 shrink-0" />
                                     <span>{practice}</span>
-                                  </li>
+                                  </motion.li>
                                 ))}
                               </ul>
                             </div>
@@ -830,7 +991,7 @@ export function EngineeringPortfolio({ onNavigateWithTransition }: EngineeringPo
 
       {/* =====================================================================
           SECTION 3A: FLAGSHIP PROJECTS
-          • MOBILE (< 768px): Swipeable Horizontal Snap Cards (No vertical scroll-jacking!)
+          • MOBILE (< 768px): Swipeable Horizontal Snap Cards with layoutId Pill Morph
           • TABLET & DESKTOP (>= 768px): Sticky Scroll-Pinned Sequential Showcase (01 -> 04)
       ===================================================================== */}
       <section id="instrument" className="relative w-full">
@@ -841,14 +1002,14 @@ export function EngineeringPortfolio({ onNavigateWithTransition }: EngineeringPo
           <div className="flex items-center justify-between gap-2 mb-4">
             <div className="flex items-center gap-2 text-[10px] font-mono uppercase tracking-[0.2em] text-neutral-300">
               <span className="w-1.5 h-1.5 bg-white inline-block" />
-              <span>03 · FLAGSHIP SYSTEMS</span>
+              <ScrambleKicker text="03 · FLAGSHIP SYSTEMS" />
             </div>
             <span className="text-[9px] font-mono uppercase tracking-[0.16em] text-neutral-500">
               SWIPE CARDS ↔
             </span>
           </div>
 
-          {/* Mobile Segmented Project Selector Pills */}
+          {/* Mobile Segmented Project Selector Pills with Shared layoutId Background */}
           <div className="grid grid-cols-4 gap-1.5 mb-4">
             {FLAGSHIP_PROJECTS.map((proj, idx) => {
               const isActive = idx === activeProjectIndex;
@@ -862,13 +1023,22 @@ export function EngineeringPortfolio({ onNavigateWithTransition }: EngineeringPo
                     setTraceKey((k) => k + 1);
                     scrollMobileCarouselToIndex(idx);
                   }}
-                  className={`py-2 px-1 text-[10px] font-mono uppercase tracking-[0.1em] border text-center truncate transition-colors ${
-                    isActive
-                      ? 'border-white bg-white text-black font-bold'
-                      : 'border-white/15 bg-white/[0.02] text-neutral-400'
-                  }`}
+                  className="relative py-2 px-1 text-[10px] font-mono uppercase tracking-[0.1em] border border-white/15 text-center truncate overflow-hidden"
                 >
-                  {proj.numeral} · {proj.titleWhite.split(' ')[0]}
+                  {isActive && (
+                    <motion.div
+                      layoutId="active-project-pill-mobile"
+                      transition={SPRING_SNAPPY}
+                      className="absolute inset-0 bg-white z-0"
+                    />
+                  )}
+                  <span
+                    className={`relative z-10 ${
+                      isActive ? 'text-black font-bold' : 'text-neutral-400'
+                    }`}
+                  >
+                    {proj.numeral} · {proj.titleWhite.split(' ')[0]}
+                  </span>
                 </button>
               );
             })}
@@ -883,16 +1053,21 @@ export function EngineeringPortfolio({ onNavigateWithTransition }: EngineeringPo
             {FLAGSHIP_PROJECTS.map((proj, idx) => {
               const isActive = idx === activeProjectIndex;
               return (
-                <div
+                <motion.div
                   key={`mob-card-${proj.id}`}
+                  animate={{
+                    scale: isActive ? 1 : 0.96,
+                    opacity: isActive ? 1 : 0.72,
+                  }}
+                  transition={{ duration: 0.28, ease: EASE_OUT_EXPO }}
                   className={`w-[86vw] max-w-[350px] shrink-0 snap-center border p-4 flex flex-col justify-between transition-colors ${
                     isActive
-                      ? 'border-white/35 bg-[#070707]'
+                      ? 'border-white/40 bg-[#070707] shadow-[0_10px_30px_rgba(255,255,255,0.05)]'
                       : 'border-white/12 bg-[#040404]/90'
                   }`}
                 >
                   <div>
-                    {/* Top Row: Numeral + Role/Period + Schema Trigger */}
+                    {/* Top Row: Numeral + Role/Period */}
                     <div className="flex items-center justify-between gap-2 pb-3 mb-3 border-b border-white/10">
                       <div className="flex items-center gap-2 min-w-0">
                         <span className="px-2 py-0.5 bg-white text-black text-[10px] font-mono font-bold shrink-0">
@@ -918,7 +1093,7 @@ export function EngineeringPortfolio({ onNavigateWithTransition }: EngineeringPo
                       {proj.summary}
                     </p>
 
-                    {/* Compact 3-Row / 3-Cell Key Metrics */}
+                    {/* Compact 3-Row Key Metrics */}
                     <div className="grid grid-cols-1 gap-1.5 border border-white/10 bg-white/[0.02] p-2.5 mb-3.5">
                       {proj.metrics.map((m) => (
                         <div
@@ -958,7 +1133,7 @@ export function EngineeringPortfolio({ onNavigateWithTransition }: EngineeringPo
                     <button
                       type="button"
                       onClick={() => setCaseStudyProject(proj)}
-                      className="min-h-[40px] bg-white text-black text-[10px] font-mono font-bold uppercase tracking-[0.14em] flex items-center justify-center"
+                      className="min-h-[40px] bg-white text-black text-[10px] font-mono font-bold uppercase tracking-[0.14em] flex items-center justify-center active:scale-[0.98] transition-transform"
                     >
                       CASE STUDY →
                     </button>
@@ -968,7 +1143,7 @@ export function EngineeringPortfolio({ onNavigateWithTransition }: EngineeringPo
                         href={proj.liveUrl}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="min-h-[40px] border border-white/25 text-white text-[10px] font-mono uppercase tracking-[0.14em] flex items-center justify-center"
+                        className="min-h-[40px] border border-white/25 text-white text-[10px] font-mono uppercase tracking-[0.14em] flex items-center justify-center active:scale-[0.98] transition-transform"
                       >
                         {proj.liveLabel || 'LIVE APP'} ↗
                       </a>
@@ -976,13 +1151,13 @@ export function EngineeringPortfolio({ onNavigateWithTransition }: EngineeringPo
                       <button
                         type="button"
                         onClick={() => handleSelectProject(proj.id, 'waterfall')}
-                        className="min-h-[40px] border border-white/20 text-neutral-300 text-[10px] font-mono uppercase tracking-[0.14em] flex items-center justify-center"
+                        className="min-h-[40px] border border-white/20 text-neutral-300 text-[10px] font-mono uppercase tracking-[0.14em] flex items-center justify-center active:scale-[0.98] transition-transform"
                       >
                         WATERFALL ↓
                       </button>
                     )}
                   </div>
-                </div>
+                </motion.div>
               );
             })}
           </div>
@@ -998,7 +1173,7 @@ export function EngineeringPortfolio({ onNavigateWithTransition }: EngineeringPo
                   setActiveProjectIndex(idx);
                   scrollMobileCarouselToIndex(idx);
                 }}
-                className={`h-1.5 transition-all ${
+                className={`h-1.5 transition-all duration-300 ${
                   idx === activeProjectIndex ? 'w-6 bg-white' : 'w-1.5 bg-white/25'
                 }`}
               />
@@ -1014,7 +1189,7 @@ export function EngineeringPortfolio({ onNavigateWithTransition }: EngineeringPo
           className="hidden md:block relative w-full h-[340vh] lg:h-[365vh]"
         >
           <div className="sticky top-14 w-full min-h-[calc(100vh-3.5rem)] flex flex-col justify-between py-8 lg:py-12 overflow-hidden bg-black/95">
-            {/* Top Bar Inside Pinned Stage: Project Tabs + Sequential Progress Bar */}
+            {/* Top Bar Inside Pinned Stage: Project Tabs with Shared layoutId Morph + Progress Rail */}
             <div className="w-full px-8 lg:px-14 xl:px-20">
               <div className="flex items-center justify-between gap-4 pb-5 border-b border-white/[0.09]">
                 <div className="flex items-center gap-3">
@@ -1027,13 +1202,22 @@ export function EngineeringPortfolio({ onNavigateWithTransition }: EngineeringPo
                         key={proj.id}
                         onClick={() => handleSelectProject(proj.id, 'track')}
                         data-magnetic
-                        className={`px-4 py-2 text-[11px] font-mono uppercase tracking-[0.16em] border transition-all duration-200 whitespace-nowrap shrink-0 ${
-                          isActive
-                            ? 'border-white bg-white text-black font-bold shadow-[0_0_20px_rgba(255,255,255,0.2)]'
-                            : 'border-white/15 bg-transparent text-neutral-400 hover:text-white hover:border-white/40'
-                        }`}
+                        className="relative px-4 py-2 text-[11px] font-mono uppercase tracking-[0.16em] border border-white/15 hover:border-white/40 transition-colors whitespace-nowrap shrink-0 overflow-hidden"
                       >
-                        {proj.numeral} · {proj.titleWhite}
+                        {isActive && (
+                          <motion.div
+                            layoutId="active-project-pill-desktop"
+                            transition={SPRING_SNAPPY}
+                            className="absolute inset-0 bg-white z-0"
+                          />
+                        )}
+                        <span
+                          className={`relative z-10 ${
+                            isActive ? 'text-black font-bold' : 'text-neutral-400 hover:text-white'
+                          }`}
+                        >
+                          {proj.numeral} · {proj.titleWhite}
+                        </span>
                       </button>
                     );
                   })}
@@ -1074,10 +1258,10 @@ export function EngineeringPortfolio({ onNavigateWithTransition }: EngineeringPo
               <AnimatePresence mode="wait">
                 <motion.div
                   key={activeProject.id}
-                  initial={{ opacity: 0, y: 26, filter: 'blur(4px)' }}
-                  animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
-                  exit={{ opacity: 0, y: -22, filter: 'blur(4px)' }}
-                  transition={{ duration: 0.42, ease: EASE_OUT_EXPO }}
+                  initial={{ opacity: 0, y: 28, scale: 0.985, filter: 'blur(6px)' }}
+                  animate={{ opacity: 1, y: 0, scale: 1, filter: 'blur(0px)' }}
+                  exit={{ opacity: 0, y: -24, scale: 0.985, filter: 'blur(6px)' }}
+                  transition={{ duration: 0.44, ease: EASE_OUT_EXPO }}
                   className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-center"
                 >
                   {/* Left 8 Columns: Kicker, Title, Summary, Metrics, Tech Stack & Actions */}
@@ -1114,15 +1298,22 @@ export function EngineeringPortfolio({ onNavigateWithTransition }: EngineeringPo
                       ))}
                     </div>
 
-                    {/* Tech Stack Tags */}
+                    {/* Staggered Tech Stack Tags */}
                     <div className="flex flex-wrap gap-2 mb-8 max-w-4xl">
-                      {activeProject.techStack.map((tech) => (
-                        <span
+                      {activeProject.techStack.map((tech, tIdx) => (
+                        <motion.span
                           key={tech}
+                          initial={{ opacity: 0, y: 8 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{
+                            duration: 0.26,
+                            delay: 0.05 + tIdx * 0.025,
+                            ease: EASE_OUT_EXPO,
+                          }}
                           className="border border-white/12 bg-white/[0.025] px-3 py-1 text-xs font-mono text-neutral-200"
                         >
                           {tech}
-                        </span>
+                        </motion.span>
                       ))}
                     </div>
 
@@ -1164,9 +1355,9 @@ export function EngineeringPortfolio({ onNavigateWithTransition }: EngineeringPo
                   <div className="hidden lg:flex lg:col-span-4 flex-col items-end justify-center select-none">
                     <motion.div
                       key={`num-${activeProject.numeral}`}
-                      initial={{ opacity: 0, scale: 0.92, y: 20 }}
-                      animate={{ opacity: 1, scale: 1, y: 0 }}
-                      transition={{ duration: 0.45, ease: EASE_OUT_EXPO }}
+                      initial={{ opacity: 0, scale: 0.88, rotate: -3, y: 24 }}
+                      animate={{ opacity: 1, scale: 1, rotate: 0, y: 0 }}
+                      transition={{ duration: 0.52, ease: EASE_OUT_EXPO }}
                       className="text-[190px] xl:text-[250px] font-bold tracking-[-0.06em] leading-[0.82] bg-gradient-to-b from-white via-neutral-400 to-transparent bg-clip-text text-transparent"
                     >
                       {activeProject.numeral}
@@ -1217,7 +1408,7 @@ export function EngineeringPortfolio({ onNavigateWithTransition }: EngineeringPo
         {/* =====================================================================
             SECTION 3B: THE INSTRUMENT — ENRICHED ROUTE & QUERY WATERFALL
             • Live ASCII Telemetry Matrix Backdrop
-            • Hover Blur Halo on Route Cards
+            • Hover Blur Halo + Shared layoutId Gliding Selection Border
             • Structured Auth Layer, DB Engine, SQL Operation & Payload Data
         ===================================================================== */}
         <div
@@ -1227,7 +1418,9 @@ export function EngineeringPortfolio({ onNavigateWithTransition }: EngineeringPo
           {/* Top Controls Bar */}
           <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
             <div className="border border-white/15 bg-black/90 px-3 py-1.5 text-[9.5px] sm:text-[11px] font-mono uppercase tracking-[0.18em] text-neutral-200">
-              THE INSTRUMENT — ARCHITECTURE & QUERY WATERFALL ({activeProject.titleWhite.toUpperCase()})
+              <ScrambleKicker
+                text={`THE INSTRUMENT — ARCHITECTURE & QUERY WATERFALL (${activeProject.titleWhite.toUpperCase()})`}
+              />
             </div>
 
             <div className="flex items-center gap-1.5 sm:gap-2.5">
@@ -1282,7 +1475,7 @@ export function EngineeringPortfolio({ onNavigateWithTransition }: EngineeringPo
                 </span>
               </div>
 
-              {/* Enriched Route Cards (Responsive across Mobile, Tablet & Desktop with Hover Blur Halo) */}
+              {/* Enriched Route Cards (With Shared layoutId Selection Border & Hover Blur Halo) */}
               <div className="space-y-3 font-mono">
                 {activeProject.waterfallRoutes.map((route, idx) => {
                   const isSelected = idx === selectedRouteIndex;
@@ -1298,12 +1491,21 @@ export function EngineeringPortfolio({ onNavigateWithTransition }: EngineeringPo
                       whileHover={{ y: -2 }}
                       transition={{ duration: 0.18 }}
                       data-magnetic
-                      className={`group relative w-full text-left p-3.5 sm:p-4 border overflow-hidden transition-all duration-200 ${
+                      className={`group relative w-full text-left p-3.5 sm:p-4 border overflow-hidden transition-colors duration-200 ${
                         isSelected
-                          ? 'border-white/45 bg-white/[0.07] shadow-[0_0_35px_rgba(255,255,255,0.08)]'
-                          : 'border-white/10 bg-black/70 hover:border-white/30 hover:bg-white/[0.04]'
+                          ? 'border-white/20 bg-white/[0.07]'
+                          : 'border-white/10 bg-black/70 hover:border-white/25 hover:bg-white/[0.04]'
                       }`}
                     >
+                      {/* Shared layoutId Gliding Active Selection Frame */}
+                      {isSelected && (
+                        <motion.div
+                          layoutId="active-waterfall-route"
+                          transition={SPRING_SNAPPY}
+                          className="pointer-events-none absolute inset-0 border border-white/60 shadow-[0_0_32px_rgba(255,255,255,0.12)] z-20"
+                        />
+                      )}
+
                       {/* Soft Radial Blur Halo on Hover or Active */}
                       <div
                         className={`pointer-events-none absolute -inset-4 z-0 transition-opacity duration-300 ${
@@ -1349,7 +1551,7 @@ export function EngineeringPortfolio({ onNavigateWithTransition }: EngineeringPo
                           </div>
                         </div>
 
-                        {/* Middle Row: Waterfall Timing Bar */}
+                        {/* Middle Row: Waterfall Timing Bar with Continuous Data Packet Shimmer */}
                         <div className="w-full h-2 sm:h-2.5 bg-white/[0.06] relative overflow-hidden mb-2.5">
                           <motion.div
                             initial={{ left: '0%', width: '0%', opacity: 0.4 }}
@@ -1367,15 +1569,15 @@ export function EngineeringPortfolio({ onNavigateWithTransition }: EngineeringPo
                             className="absolute inset-y-0 bg-gradient-to-r from-neutral-500 via-neutral-200 to-white overflow-hidden"
                           >
                             <motion.div
-                              initial={{ x: '-100%' }}
-                              whileInView={{ x: '200%' }}
-                              viewport={{ once: false, amount: 0.2 }}
+                              animate={{ x: ['-100%', '220%'] }}
                               transition={{
-                                duration: 0.95,
-                                delay: idx * 0.06 + 0.1,
-                                ease: 'easeOut',
+                                duration: 2.2,
+                                delay: idx * 0.15,
+                                repeat: Infinity,
+                                repeatDelay: 1.2,
+                                ease: 'easeInOut',
                               }}
-                              className="w-1/2 h-full bg-gradient-to-r from-transparent via-white to-transparent opacity-85"
+                              className="w-1/2 h-full bg-gradient-to-r from-transparent via-white to-transparent opacity-90"
                             />
                           </motion.div>
                         </div>
@@ -1413,9 +1615,9 @@ export function EngineeringPortfolio({ onNavigateWithTransition }: EngineeringPo
               {activeRoute && (
                 <motion.div
                   key={activeRoute.path}
-                  initial={{ opacity: 0, y: 8 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.28, ease: EASE_OUT_EXPO }}
+                  initial={{ opacity: 0, y: 10, filter: 'blur(4px)' }}
+                  animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
+                  transition={{ duration: 0.32, ease: EASE_OUT_EXPO }}
                   className="mt-6 pt-5 sm:pt-6 border-t border-white/[0.12]"
                 >
                   {/* 4-Column Architectural Telemetry Breakdown */}
@@ -1490,7 +1692,7 @@ export function EngineeringPortfolio({ onNavigateWithTransition }: EngineeringPo
 
       {/* =====================================================================
           SECTION 4: WORK MANIFEST & EXPERIENCE
-          (Compact 2x2 Bento on Mobile + 12-Col Architectural Experience Ledger)
+          (Spotlight 2x2 Bento on Mobile + 12-Col Architectural Experience Ledger)
       ===================================================================== */}
       <section id="experience" className="relative w-full py-12 sm:py-28 lg:py-32">
         <div className="w-full px-4 sm:px-8 lg:px-14 xl:px-20">
@@ -1505,9 +1707,10 @@ export function EngineeringPortfolio({ onNavigateWithTransition }: EngineeringPo
               <div>
                 <div className="flex items-center gap-2.5 mb-2.5 sm:mb-4">
                   <span className="w-1.5 h-1.5 sm:w-2 sm:h-2 bg-white inline-block shrink-0" />
-                  <span className="text-[10px] sm:text-[11px] font-mono uppercase tracking-[0.22em] text-neutral-400">
-                    04 · THE WORK — MANIFEST & EXPERIENCE
-                  </span>
+                  <ScrambleKicker
+                    text="04 · THE WORK — MANIFEST & EXPERIENCE"
+                    className="text-[10px] sm:text-[11px] font-mono uppercase tracking-[0.22em] text-neutral-400"
+                  />
                 </div>
                 <h2 className="text-2xl sm:text-5xl lg:text-6xl font-bold tracking-[-0.03em] leading-[1.1] text-white">
                   Production client systems, internships &{' '}
@@ -1520,36 +1723,40 @@ export function EngineeringPortfolio({ onNavigateWithTransition }: EngineeringPo
               </div>
             </div>
 
-            {/* Top 4-Card Achievements Bento Strip (Compact 2x2 on Mobile, 4-Col on Desktop) */}
+            {/* Top 4-Card Achievements Bento Strip (Interactive Spotlight Cards) */}
             <div className="grid grid-cols-2 xl:grid-cols-4 border border-white/[0.09] bg-white/[0.01] mb-10 sm:mb-20">
               {ACHIEVEMENT_PILLARS.map((pillar, idx) => (
-                <motion.div
+                <SpotlightSurface
                   key={pillar.index}
-                  initial={{ opacity: 0, y: 14 }}
-                  whileInView={{ opacity: 1, y: 0 }}
-                  viewport={{ once: true }}
-                  transition={{
-                    duration: 0.45,
-                    delay: idx * 0.05,
-                    ease: EASE_OUT_EXPO,
-                  }}
-                  className="p-3.5 sm:p-7 lg:p-8 border-b xl:border-b-0 odd:border-r xl:border-r last:border-r-0 border-white/[0.09] hover:bg-white/[0.025] transition-colors flex flex-col justify-between"
+                  className="border-b xl:border-b-0 odd:border-r xl:border-r last:border-r-0 border-white/[0.09]"
                 >
-                  <div>
-                    <div className="text-[8.5px] sm:text-[10px] font-mono uppercase tracking-[0.16em] text-neutral-500 mb-1.5 sm:mb-4 truncate">
-                      {pillar.index} · {pillar.tag}
+                  <motion.div
+                    initial={{ opacity: 0, y: 14 }}
+                    whileInView={{ opacity: 1, y: 0 }}
+                    viewport={{ once: true }}
+                    transition={{
+                      duration: 0.45,
+                      delay: idx * 0.06,
+                      ease: EASE_OUT_EXPO,
+                    }}
+                    className="p-3.5 sm:p-7 lg:p-8 h-full flex flex-col justify-between"
+                  >
+                    <div>
+                      <div className="text-[8.5px] sm:text-[10px] font-mono uppercase tracking-[0.16em] text-neutral-500 mb-1.5 sm:mb-4 truncate">
+                        {pillar.index} · {pillar.tag}
+                      </div>
+                      <div className="text-base sm:text-3xl font-bold tracking-tight text-white mb-1 sm:mb-2">
+                        {pillar.metric}
+                      </div>
+                      <div className="text-[10.5px] sm:text-xs font-mono text-neutral-300 mb-1.5 sm:mb-3">
+                        {pillar.title}
+                      </div>
                     </div>
-                    <div className="text-base sm:text-3xl font-bold tracking-tight text-white mb-1 sm:mb-2">
-                      {pillar.metric}
-                    </div>
-                    <div className="text-[10.5px] sm:text-xs font-mono text-neutral-300 mb-1.5 sm:mb-3">
-                      {pillar.title}
-                    </div>
-                  </div>
-                  <p className="text-[11px] sm:text-[13px] text-neutral-400 leading-relaxed line-clamp-3 sm:line-clamp-none">
-                    {pillar.detail}
-                  </p>
-                </motion.div>
+                    <p className="text-[11px] sm:text-[13px] text-neutral-400 leading-relaxed line-clamp-3 sm:line-clamp-none">
+                      {pillar.detail}
+                    </p>
+                  </motion.div>
+                </SpotlightSurface>
               ))}
             </div>
 
@@ -1563,12 +1770,12 @@ export function EngineeringPortfolio({ onNavigateWithTransition }: EngineeringPo
                 return (
                   <motion.div
                     key={item.code}
-                    initial={{ opacity: 0, y: 16 }}
-                    whileInView={{ opacity: 1, y: 0 }}
+                    initial={{ opacity: 0, y: 18, filter: 'blur(4px)' }}
+                    whileInView={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
                     viewport={{ once: true, margin: '-30px' }}
                     transition={{
-                      duration: 0.5,
-                      delay: idx * 0.04,
+                      duration: 0.52,
+                      delay: idx * 0.05,
                       ease: EASE_OUT_EXPO,
                     }}
                     className="py-5 sm:py-11 lg:py-12 grid grid-cols-1 lg:grid-cols-12 gap-3.5 sm:gap-6 lg:gap-10 items-start hover:bg-white/[0.015] transition-colors"
@@ -1690,7 +1897,7 @@ export function EngineeringPortfolio({ onNavigateWithTransition }: EngineeringPo
             {/* Full-Width Verification Table */}
             <div className="border border-white/15 bg-[#050505] mb-12 sm:mb-20">
               <div className="px-4 sm:px-8 py-3 sm:py-4 border-b border-white/[0.09] text-[9.5px] sm:text-[11px] font-mono uppercase tracking-[0.2em] text-neutral-400">
-                VERIFY: LIVE DEPLOYMENTS, SOURCE REPOSITORIES & PROFESSIONAL NETWORK
+                <ScrambleKicker text="VERIFY: LIVE DEPLOYMENTS, SOURCE REPOSITORIES & PROFESSIONAL NETWORK" />
               </div>
 
               {[
@@ -1751,7 +1958,7 @@ export function EngineeringPortfolio({ onNavigateWithTransition }: EngineeringPo
             <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-5 sm:mb-8">
               <div className="flex items-center gap-2.5 text-[10px] sm:text-[11px] font-mono uppercase tracking-[0.22em] text-neutral-400">
                 <span className="w-1.5 h-1.5 sm:w-2 sm:h-2 bg-white inline-block shrink-0" />
-                <span>05 · FIELD NOTES — ARCHITECTURE LOGS</span>
+                <ScrambleKicker text="05 · FIELD NOTES — ARCHITECTURE LOGS" />
               </div>
               <div className="hidden sm:block">
                 <ParticleEllipsoid width={230} height={115} glowIntensity={0.15} />
@@ -1810,7 +2017,7 @@ export function EngineeringPortfolio({ onNavigateWithTransition }: EngineeringPo
             <div>
               <div className="flex items-center gap-2.5 text-[10px] sm:text-[11px] font-mono uppercase tracking-[0.22em] text-neutral-300 mb-3 sm:mb-4">
                 <span className="w-1.5 h-1.5 sm:w-2 sm:h-2 bg-white inline-block shrink-0" />
-                <span>06 · DIRECT CHANNEL · CONTACT</span>
+                <ScrambleKicker text="06 · DIRECT CHANNEL · CONTACT" />
               </div>
               <h2 className="text-2xl sm:text-5xl lg:text-6xl font-bold tracking-tight text-white mb-3 sm:mb-4 text-balance">
                 Ready to ship production full-stack systems.

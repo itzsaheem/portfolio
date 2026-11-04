@@ -296,6 +296,15 @@ export function WebGLTextHero({ onScrollToProjects, onNavigateToSection }: WebGL
       const interactRadius = Math.max(52, Math.min(88, width * 0.058));
       const interactRadiusSq = interactRadius * interactRadius;
 
+      // Autonomous harmonic shimmer wave when pointer is idle (especially captivating on mobile!)
+      const idleTime = now * 0.0012;
+      const idleWaveX = width * (0.5 + Math.sin(idleTime * 1.1) * 0.32);
+      const idleWaveY =
+        (width < 768 ? height * 0.41 : height * 0.49) +
+        Math.cos(idleTime * 1.7) * (height * 0.06);
+      const idleRadius = width < 768 ? 26 : 34;
+      const idleRadiusSq = idleRadius * idleRadius;
+
       // Clear main canvas frame
       ctx.clearRect(0, 0, width, height);
 
@@ -310,7 +319,7 @@ export function WebGLTextHero({ onScrollToProjects, onNavigateToSection }: WebGL
       for (let i = 0; i < particles.length; i++) {
         const p = particles[i];
 
-        // 1. Kick particle into floating white ball when cursor crosses over its area
+        // 1A. Kick particle into floating white ball when cursor/touch crosses over its area
         if (mouse.active) {
           const mdx = p.x - mouse.x;
           const mdy = p.y - mouse.y;
@@ -333,6 +342,18 @@ export function WebGLTextHero({ onScrollToProjects, onNavigateToSection }: WebGL
             p.vy += normX * (Math.random() - 0.5) * 3.2 * force;
 
             p.displaced = 1.0;
+          }
+        } else if (i % 7 === 0) {
+          // 1B. Subtle autonomous ambient shimmer wave on idle / mobile screens
+          const idx = p.homeX - idleWaveX;
+          const idy = p.homeY - idleWaveY;
+          const iDistSq = idx * idx + idy * idy;
+          if (iDistSq < idleRadiusSq && p.displaced < 0.15) {
+            const iDist = Math.sqrt(iDistSq);
+            const iForce = (1 - iDist / idleRadius) * 0.45;
+            p.vx += Math.cos(idleTime * 2 + i) * 1.4 * iForce;
+            p.vy -= (0.9 + Math.random() * 0.8) * iForce;
+            p.displaced = 0.65;
           }
         }
 
@@ -470,7 +491,12 @@ export function WebGLTextHero({ onScrollToProjects, onNavigateToSection }: WebGL
       </div>
 
       {/* 1. Top Navigation Bar (Bespoke Mobile Hamburger Row vs Desktop Inline Nav) */}
-      <header className="relative z-30 flex items-center justify-between w-full">
+      <motion.header
+        initial={{ opacity: 0, y: -14 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.65, ease: [0.16, 1, 0.3, 1] }}
+        className="relative z-30 flex items-center justify-between w-full"
+      >
         {/* Left Brand Emblem: 4-Point Star + Mobile Compact Identity */}
         <div className="flex items-center gap-2.5">
           <svg className="w-5 h-5 sm:w-8 sm:h-8 fill-white shrink-0" viewBox="0 0 24 24">
@@ -553,24 +579,16 @@ export function WebGLTextHero({ onScrollToProjects, onNavigateToSection }: WebGL
             />
           </div>
         </button>
-      </header>
-
-      {/* Mobile Eyebrow Pill Above Center Title (< 768px) */}
-      <div className="md:hidden relative z-20 flex justify-center mt-4 pointer-events-none">
-        <div className="inline-flex items-center gap-2 px-3 py-1 border border-white/15 bg-black/70 backdrop-blur-sm text-[9px] font-mono uppercase tracking-[0.2em] text-neutral-300">
-          <span className="w-1.5 h-1.5 bg-white inline-block" />
-          <span>FULL-STACK ENGINEER · SIH &apos;25 FINALIST</span>
-        </div>
-      </div>
+      </motion.header>
 
       {/* Full-Screen Mobile Hamburger Drawer inside Hero (< 768px) */}
       <AnimatePresence>
         {isHeroMenuOpen && (
           <motion.div
-            initial={{ opacity: 0, y: -12 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -12 }}
-            transition={{ duration: 0.25 }}
+            initial={{ opacity: 0, clipPath: 'inset(0 0 100% 0)' }}
+            animate={{ opacity: 1, clipPath: 'inset(0 0 0% 0)' }}
+            exit={{ opacity: 0, clipPath: 'inset(0 0 100% 0)' }}
+            transition={{ duration: 0.38, ease: [0.16, 1, 0.3, 1] }}
             className="fixed inset-0 z-50 bg-[#040404]/98 backdrop-blur-xl flex flex-col justify-between p-5 md:hidden"
           >
             <div className="flex items-center justify-between pb-4 border-b border-white/10">
@@ -602,10 +620,13 @@ export function WebGLTextHero({ onScrollToProjects, onNavigateToSection }: WebGL
                 { id: 'experience', num: '04', title: 'Work & Experience', sub: 'Client Production · SIH Finals · Internship' },
                 { id: 'notes', num: '05', title: 'Field Notes & Verify', sub: 'Architecture Logs & Live Deployments' },
                 { id: 'contact', num: '06', title: 'Direct Contact', sub: PROFILE_DATA.email },
-              ].map((item) => (
-                <button
+              ].map((item, idx) => (
+                <motion.button
                   key={item.id}
                   type="button"
+                  initial={{ opacity: 0, x: -16 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ duration: 0.32, delay: 0.04 + idx * 0.045, ease: [0.16, 1, 0.3, 1] }}
                   onClick={() => handleHeroNav(item.id, item.title.toUpperCase())}
                   className="w-full py-3 border-b border-white/[0.08] flex items-center justify-between text-left active:bg-white/[0.05] transition-colors"
                 >
@@ -621,7 +642,7 @@ export function WebGLTextHero({ onScrollToProjects, onNavigateToSection }: WebGL
                     </div>
                   </div>
                   <span className="text-xs font-mono text-neutral-400 shrink-0 ml-2">→</span>
-                </button>
+                </motion.button>
               ))}
             </div>
 
@@ -650,32 +671,30 @@ export function WebGLTextHero({ onScrollToProjects, onNavigateToSection }: WebGL
         </span>
       </div>
 
-      {/* 3. Center Interactive Text Disintegration & Reconstruction Canvas */}
+      {/* 3. Center Interactive Text Disintegration & Reconstruction Canvas (100% Unobstructed) */}
       <div className="absolute inset-0 w-full h-full z-10 flex items-center justify-center pointer-events-auto">
         <canvas
           ref={canvasRef}
           className="w-full h-full block md:cursor-none"
-          title="Move cursor over text to disintegrate into white balls and watch it reconstruct"
+          title="Move cursor or touch text to disintegrate into white balls and watch it reconstruct"
         />
       </div>
 
       {/* Seamless Bottom Atmospheric Feather into the Thesis Section */}
       <div className="pointer-events-none absolute inset-x-0 bottom-0 h-56 bg-gradient-to-b from-transparent via-black/75 to-black z-10" />
 
-      {/* 4. Bottom Intro Text & Reach Out Link (Compact Mobile Card vs Desktop Split Footer) */}
-      <footer className="relative z-20 flex flex-col sm:flex-row justify-between items-stretch sm:items-end gap-4 sm:gap-6 w-full pointer-events-none">
+      {/* 4. Bottom Intro Text & Reach Out Link (Clean Unobstructed Mobile Layout vs Desktop Split Footer) */}
+      <motion.footer
+        initial={{ opacity: 0, y: 18, filter: 'blur(6px)' }}
+        animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
+        transition={{ duration: 0.75, delay: 0.12, ease: [0.16, 1, 0.3, 1] }}
+        className="relative z-20 flex flex-col sm:flex-row justify-between items-stretch sm:items-end gap-3.5 sm:gap-6 w-full pointer-events-none"
+      >
         <div className="pointer-events-auto max-w-md">
-          {/* Mobile Compact Stack Strip */}
-          <div className="flex md:hidden flex-wrap items-center gap-1.5 text-[10px] font-mono text-neutral-400 mb-2">
-            <span>Java</span>
-            <span>·</span>
-            <span>Python</span>
-            <span>·</span>
-            <span>TypeScript</span>
-            <span>·</span>
-            <span>React</span>
-            <span>·</span>
-            <span>PostgreSQL / MySQL</span>
+          {/* Mobile Compact Status + Stack Line (Docked cleanly above bio, never overlapping center canvas) */}
+          <div className="flex md:hidden items-center gap-2 text-[9.5px] font-mono uppercase tracking-[0.18em] text-neutral-300 mb-1.5">
+            <span className="w-1.5 h-1.5 bg-white inline-block shrink-0" />
+            <span>FULL-STACK ENGINEER · SIH &apos;25 FINALIST</span>
           </div>
 
           <p className="font-sans text-[11.5px] sm:text-[13px] text-neutral-300 leading-relaxed font-medium">
@@ -692,18 +711,18 @@ export function WebGLTextHero({ onScrollToProjects, onNavigateToSection }: WebGL
         </div>
 
         {/* Mobile Compact Action Pair (< 640px) */}
-        <div className="grid grid-cols-2 gap-2.5 sm:hidden pointer-events-auto pt-1">
+        <div className="grid grid-cols-2 gap-2.5 sm:hidden pointer-events-auto pt-0.5">
           <button
             type="button"
             onClick={() => handleHeroNav('instrument', 'THE BUILD · FLAGSHIP SYSTEMS')}
-            className="min-h-[42px] bg-white text-black text-[10px] font-mono font-bold uppercase tracking-[0.16em] flex items-center justify-center"
+            className="min-h-[42px] bg-white text-black text-[10px] font-mono font-bold uppercase tracking-[0.16em] flex items-center justify-center active:scale-[0.98] transition-transform"
           >
             EXPLORE WORK ↓
           </button>
           <button
             type="button"
             onClick={() => handleHeroNav('contact', 'DIRECT CHANNEL · CONTACT')}
-            className="min-h-[42px] border border-white/25 bg-black/70 text-white text-[10px] font-mono uppercase tracking-[0.16em] flex items-center justify-center"
+            className="min-h-[42px] border border-white/25 bg-black/70 text-white text-[10px] font-mono uppercase tracking-[0.16em] flex items-center justify-center active:scale-[0.98] transition-transform"
           >
             CONTACT +
           </button>
@@ -722,7 +741,7 @@ export function WebGLTextHero({ onScrollToProjects, onNavigateToSection }: WebGL
             </button>
           </Magnetic>
         </div>
-      </footer>
+      </motion.footer>
     </div>
   );
 }
