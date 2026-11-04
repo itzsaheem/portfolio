@@ -42,7 +42,7 @@ export default function App() {
   }, [navigateWithTransition]);
 
   return (
-    <div className="bg-[#000000] text-white font-sans selection:bg-white selection:text-black relative min-h-screen overflow-x-hidden">
+    <div className="bg-[#000000] text-white font-sans selection:bg-white selection:text-black relative min-h-screen overflow-x-clip">
       {/* Futuristic ASCII Rainfall Background (Pauses automatically when off-screen) */}
       <AsciiBackground />
 

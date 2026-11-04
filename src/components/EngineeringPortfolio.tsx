@@ -192,8 +192,9 @@ export function EngineeringPortfolio({ onNavigateWithTransition }: EngineeringPo
   const [commandQuery, setCommandQuery] = useState<string>('');
   const [copiedEmail, setCopiedEmail] = useState<boolean>(false);
 
-  // Refs for the sticky scroll-pinned sequential project track (desktop), mobile snap carousel, & bypass
+  // Refs for the sticky horizontal side-scroll project track (desktop), mobile snap carousel, & bypass
   const projectTrackRef = useRef<HTMLDivElement>(null);
+  const horizontalReelRef = useRef<HTMLDivElement>(null);
   const mobileCarouselRef = useRef<HTMLDivElement>(null);
   const isProgrammaticNavRef = useRef<boolean>(false);
   const programmaticTimeoutRef = useRef<number | null>(null);
@@ -205,6 +206,36 @@ export function EngineeringPortfolio({ onNavigateWithTransition }: EngineeringPo
   const isAnyOverlayOpen = Boolean(
     caseStudyProject || activeFieldNote || isCommandOpen || isMobileMenuOpen
   );
+
+  // Maps raw vertical scroll progress [0..1] inside #instrument into horizontal reel progress [0..1]
+  // with entry/exit holds and magnetic detents at each project stop (01, 02, 03, 04)
+  const computeHorizontalProgress = useCallback((raw: number) => {
+    const clamped = Math.max(0, Math.min(1, raw));
+    const entryHold = 0.06;
+    const exitHold = 0.92;
+    if (clamped <= entryHold) return 0;
+    if (clamped >= exitHold) return 1;
+
+    const t = (clamped - entryHold) / (exitHold - entryHold); // 0..1 across 3 horizontal transitions
+    const totalTransitions = FLAGSHIP_PROJECTS.length - 1; // 3
+    const scaled = t * totalTransitions;
+    const segIdx = Math.min(totalTransitions - 1, Math.floor(scaled));
+    const segFrac = scaled - segIdx;
+
+    // Gentle magnetic detent plateau around each project stop
+    const plateau = 0.1;
+    let easedFrac = 0;
+    if (segFrac <= plateau) {
+      easedFrac = 0;
+    } else if (segFrac >= 1 - plateau) {
+      easedFrac = 1;
+    } else {
+      const inner = (segFrac - plateau) / (1 - 2 * plateau);
+      easedFrac = inner * inner * (3 - 2 * inner);
+    }
+
+    return Math.max(0, Math.min(1, (segIdx + easedFrac) / totalTransitions));
+  }, []);
 
   // Helper to mark navigation as programmatic so scroll-pinning never hijacks header clicks
   const triggerProgrammaticBypass = useCallback((durationMs = 1050) => {
@@ -235,7 +266,7 @@ export function EngineeringPortfolio({ onNavigateWithTransition }: EngineeringPo
 
   // Combined scroll listener:
   // 1) Shows sticky top bar after scrolling past Hero
-  // 2) Sequentially cycles projects 01 -> 02 -> 03 -> 04 while scrolling inside #instrument track on >= 768px
+  // 2) Drives the L -> I (Down -> Right -> Down) horizontal side-scroll reel across projects 01 -> 04
   useEffect(() => {
     const onScroll = () => {
       const scrollY = window.scrollY;
@@ -245,8 +276,8 @@ export function EngineeringPortfolio({ onNavigateWithTransition }: EngineeringPo
       const shouldShowNav = scrollY > vh * 0.68;
       setShowStickyNav((prev) => (prev !== shouldShowNav ? shouldShowNav : prev));
 
-      // 2. Sequential scroll-pinned project showcase (active on >= 768px during manual scroll)
-      if (window.innerWidth < 768 || isProgrammaticNavRef.current) return;
+      // 2. Horizontal side-scroll project reel (active on >= 768px)
+      if (window.innerWidth < 768) return;
 
       const trackEl = projectTrackRef.current;
       if (!trackEl) return;
@@ -258,18 +289,27 @@ export function EngineeringPortfolio({ onNavigateWithTransition }: EngineeringPo
       if (scrollableDistance <= 0) return;
 
       const scrolledInsideTrack = stickyOffset - rect.top;
+      const rawProgress = Math.max(0, Math.min(1, scrolledInsideTrack / scrollableDistance));
+      const hProgress = computeHorizontalProgress(rawProgress);
 
-      if (scrolledInsideTrack >= -40 && scrolledInsideTrack <= scrollableDistance + 40) {
-        const clampedProgress = Math.max(
-          0,
-          Math.min(0.9999, scrolledInsideTrack / scrollableDistance)
-        );
-        setProjectScrollProgress(clampedProgress);
+      // Update GPU transform on the horizontal reel directly for 60-120fps smoothness
+      if (horizontalReelRef.current && !isProgrammaticNavRef.current) {
+        const stepVw = 89; // 85vw card + 4vw architectural connector gap
+        const translateVw = -hProgress * (FLAGSHIP_PROJECTS.length - 1) * stepVw;
+        horizontalReelRef.current.style.transform = `translate3d(${translateVw.toFixed(3)}vw, 0px, 0px)`;
+      }
 
-        const totalProjects = FLAGSHIP_PROJECTS.length;
+      if (
+        !isProgrammaticNavRef.current &&
+        scrolledInsideTrack >= -120 &&
+        scrolledInsideTrack <= scrollableDistance + 120
+      ) {
+        setProjectScrollProgress(hProgress);
+
+        const maxIndex = FLAGSHIP_PROJECTS.length - 1;
         const nextIndex = Math.min(
-          totalProjects - 1,
-          Math.max(0, Math.floor(clampedProgress * totalProjects))
+          maxIndex,
+          Math.max(0, Math.round(hProgress * maxIndex))
         );
 
         setActiveProjectIndex((prevIdx) => {
@@ -286,6 +326,30 @@ export function EngineeringPortfolio({ onNavigateWithTransition }: EngineeringPo
     window.addEventListener('scroll', onScroll, { passive: true });
     onScroll();
     return () => window.removeEventListener('scroll', onScroll);
+  }, [computeHorizontalProgress]);
+
+  // Support two-finger horizontal trackpad swipes (deltaX) while inside the pinned desktop track
+  useEffect(() => {
+    const trackEl = projectTrackRef.current;
+    if (!trackEl) return;
+
+    const onWheel = (e: WheelEvent) => {
+      if (window.innerWidth < 768) return;
+      if (Math.abs(e.deltaX) <= Math.abs(e.deltaY)) return;
+
+      const rect = trackEl.getBoundingClientRect();
+      const stickyOffset = 56;
+      const scrollableDistance = rect.height - (window.innerHeight - stickyOffset);
+      const scrolledInsideTrack = stickyOffset - rect.top;
+
+      if (scrolledInsideTrack >= 0 && scrolledInsideTrack <= scrollableDistance) {
+        e.preventDefault();
+        window.scrollBy({ top: e.deltaX * 1.15, behavior: 'auto' });
+      }
+    };
+
+    trackEl.addEventListener('wheel', onWheel, { passive: false });
+    return () => trackEl.removeEventListener('wheel', onWheel);
   }, []);
 
   // Keyboard shortcut ⌘K / Ctrl+K & Escape handler
@@ -317,18 +381,27 @@ export function EngineeringPortfolio({ onNavigateWithTransition }: EngineeringPo
     }
   }, []);
 
-  // Select a specific project by ID and scroll to its position in the track (desktop), snap card (mobile), or waterfall
+  // Select a specific project by ID and scroll to its position in the horizontal track (desktop), snap card (mobile), or waterfall
   const handleSelectProject = useCallback(
     (projectId: string, scrollMode: 'none' | 'track' | 'waterfall' = 'none') => {
       const idx = FLAGSHIP_PROJECTS.findIndex((p) => p.id === projectId);
       if (idx === -1) return;
 
+      const maxIdx = Math.max(1, FLAGSHIP_PROJECTS.length - 1);
+      const targetHProgress = idx / maxIdx;
+
       setIsMobileMenuOpen(false);
-      triggerProgrammaticBypass(1050);
+      triggerProgrammaticBypass(950);
       setActiveProjectIndex(idx);
-      setProjectScrollProgress((idx + 0.15) / FLAGSHIP_PROJECTS.length);
+      setProjectScrollProgress(targetHProgress);
       setSelectedRouteIndex(0);
       setTraceKey((k) => k + 1);
+
+      if (horizontalReelRef.current) {
+        const stepVw = 89;
+        const translateVw = -targetHProgress * maxIdx * stepVw;
+        horizontalReelRef.current.style.transform = `translate3d(${translateVw.toFixed(3)}vw, 0px, 0px)`;
+      }
 
       if (scrollMode === 'track') {
         if (window.innerWidth < 768) {
@@ -342,8 +415,15 @@ export function EngineeringPortfolio({ onNavigateWithTransition }: EngineeringPo
             0,
             trackEl.offsetHeight - (window.innerHeight - 56)
           );
-          const targetScrollY =
-            trackTop - 56 + (idx / FLAGSHIP_PROJECTS.length) * scrollableDistance + 8;
+          const entryHold = 0.06;
+          const exitHold = 0.92;
+          const targetRaw =
+            idx === 0
+              ? 0.02
+              : idx === maxIdx
+              ? 0.95
+              : entryHold + targetHProgress * (exitHold - entryHold);
+          const targetScrollY = trackTop - 56 + targetRaw * scrollableDistance;
           window.scrollTo({ top: targetScrollY, behavior: 'smooth' });
         }
       } else if (scrollMode === 'waterfall') {
@@ -1182,17 +1262,18 @@ export function EngineeringPortfolio({ onNavigateWithTransition }: EngineeringPo
         </div>
 
         {/* -------------------------------------------------------------------
-            TABLET & DESKTOP STICKY SCROLL-PINNED SHOWCASE (>= 768px)
+            TABLET & DESKTOP L -> I HORIZONTAL SIDE-SCROLL SHOWCASE (>= 768px)
+            Scroll Down -> Pins & Side-Scrolls Right (01 -> 02 -> 03 -> 04) -> Resumes Vertical Scroll into Waterfall
         ------------------------------------------------------------------- */}
         <div
           ref={projectTrackRef}
-          className="hidden md:block relative w-full h-[340vh] lg:h-[365vh]"
+          className="hidden md:block relative w-full h-[320vh]"
         >
-          <div className="sticky top-14 w-full min-h-[calc(100vh-3.5rem)] flex flex-col justify-between py-8 lg:py-12 overflow-hidden bg-black/95">
-            {/* Top Bar Inside Pinned Stage: Project Tabs with Shared layoutId Morph + Progress Rail */}
-            <div className="w-full px-8 lg:px-14 xl:px-20">
-              <div className="flex items-center justify-between gap-4 pb-5 border-b border-white/[0.09]">
-                <div className="flex items-center gap-3">
+          <div className="sticky top-14 w-full h-[calc(100vh-3.5rem)] flex flex-col justify-between py-5 lg:py-7 overflow-hidden bg-black/95 border-b border-white/[0.08]">
+            {/* Top Bar Inside Pinned Stage: Project Tabs + Horizontal Progress Rail */}
+            <div className="w-full px-8 lg:px-14 xl:px-20 shrink-0">
+              <div className="flex items-center justify-between gap-4 pb-4 border-b border-white/[0.09]">
+                <div className="flex items-center gap-2.5 lg:gap-3">
                   <span className="w-2 h-2 bg-white inline-block mr-1 shrink-0" />
                   {FLAGSHIP_PROJECTS.map((proj, idx) => {
                     const isActive = idx === activeProjectIndex;
@@ -1202,7 +1283,7 @@ export function EngineeringPortfolio({ onNavigateWithTransition }: EngineeringPo
                         key={proj.id}
                         onClick={() => handleSelectProject(proj.id, 'track')}
                         data-magnetic
-                        className="relative px-4 py-2 text-[11px] font-mono uppercase tracking-[0.16em] border border-white/15 hover:border-white/40 transition-colors whitespace-nowrap shrink-0 overflow-hidden"
+                        className="relative px-3.5 lg:px-4 py-1.5 lg:py-2 text-[10.5px] lg:text-[11px] font-mono uppercase tracking-[0.16em] border border-white/15 hover:border-white/40 transition-colors whitespace-nowrap shrink-0 overflow-hidden"
                       >
                         {isActive && (
                           <motion.div
@@ -1223,9 +1304,9 @@ export function EngineeringPortfolio({ onNavigateWithTransition }: EngineeringPo
                   })}
                 </div>
 
-                <div className="flex items-center gap-6">
-                  <span className="text-[10px] font-mono uppercase tracking-[0.18em] text-neutral-500">
-                    PROJECT {activeProjectIndex + 1} OF {FLAGSHIP_PROJECTS.length} · SCROLL TO CYCLE
+                <div className="flex items-center gap-5">
+                  <span className="hidden xl:inline-block text-[10px] font-mono uppercase tracking-[0.18em] text-neutral-400">
+                    ↓ SCROLL PINS & SIDE-SCROLLS [01 → 04] · THEN ↓ WATERFALL
                   </span>
                   <button
                     type="button"
@@ -1238,168 +1319,195 @@ export function EngineeringPortfolio({ onNavigateWithTransition }: EngineeringPo
                 </div>
               </div>
 
-              {/* Continuous Scroll-Linked Progress Rail (01 -> 02 -> 03 -> 04) */}
-              <div className="w-full h-[2px] bg-white/[0.07] relative overflow-hidden">
-                <motion.div
-                  className="absolute inset-y-0 left-0 bg-gradient-to-r from-neutral-400 via-white to-white"
+              {/* Continuous Horizontal Reel Progress Rail (01 -> 02 -> 03 -> 04) */}
+              <div className="w-full h-[2px] bg-white/[0.08] relative overflow-hidden">
+                <div
+                  className="absolute inset-y-0 left-0 bg-gradient-to-r from-neutral-400 via-white to-white transition-all duration-150 ease-out"
                   style={{
-                    width: `${Math.max(
-                      12,
-                      Math.min(100, ((activeProjectIndex + 1) / FLAGSHIP_PROJECTS.length) * 100)
-                    )}%`,
+                    width: `${Math.max(8, Math.min(100, (projectScrollProgress * 0.88 + 0.12) * 100))}%`,
                   }}
-                  transition={{ duration: 0.3, ease: EASE_OUT_EXPO }}
                 />
               </div>
             </div>
 
-            {/* Center Stage: Full-Width Desktop Project Presentation */}
-            <div className="w-full px-8 lg:px-14 xl:px-20 my-auto py-6">
-              <AnimatePresence mode="wait">
-                <motion.div
-                  key={activeProject.id}
-                  initial={{ opacity: 0, y: 28, scale: 0.985, filter: 'blur(6px)' }}
-                  animate={{ opacity: 1, y: 0, scale: 1, filter: 'blur(0px)' }}
-                  exit={{ opacity: 0, y: -24, scale: 0.985, filter: 'blur(6px)' }}
-                  transition={{ duration: 0.44, ease: EASE_OUT_EXPO }}
-                  className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-center"
-                >
-                  {/* Left 8 Columns: Kicker, Title, Summary, Metrics, Tech Stack & Actions */}
-                  <div className="lg:col-span-8">
-                    <div className="flex flex-wrap items-center gap-3 mb-4">
-                      <span className="text-[11px] font-mono uppercase tracking-[0.2em] text-neutral-400">
-                        {activeProject.kicker}
-                      </span>
-                    </div>
+            {/* Center Stage: True Horizontal Side-Scroll Reel (All 4 Projects Side-by-Side) */}
+            <div className="relative w-full flex-1 flex items-center overflow-hidden">
+              <div
+                ref={horizontalReelRef}
+                className="flex flex-row items-center pl-8 lg:pl-14 xl:pl-20 will-change-transform transition-transform duration-150 ease-out"
+                style={{
+                  transform: `translate3d(${(-projectScrollProgress * (FLAGSHIP_PROJECTS.length - 1) * 89).toFixed(3)}vw, 0px, 0px)`,
+                }}
+              >
+                {FLAGSHIP_PROJECTS.map((proj, idx) => {
+                  const isCurrent = idx === activeProjectIndex;
+                  const nextProj = FLAGSHIP_PROJECTS[idx + 1];
 
-                    <h2 className="text-5xl lg:text-6xl xl:text-[72px] font-bold tracking-[-0.035em] leading-[1.02] mb-6">
-                      <span className="text-white">{activeProject.titleWhite} </span>
-                      <span className="text-[#8E9299]">{activeProject.titleMuted}</span>
-                    </h2>
-
-                    <p className="text-lg lg:text-xl text-neutral-200 leading-relaxed max-w-4xl mb-6">
-                      {activeProject.summary}
-                    </p>
-
-                    {/* 3-Column Project Key Metrics Strip */}
-                    <div className="grid grid-cols-3 border border-white/10 bg-white/[0.015] mb-6 max-w-4xl">
-                      {activeProject.metrics.map((m) => (
-                        <div
-                          key={m.label}
-                          className="px-4 py-3 border-r last:border-r-0 border-white/10"
-                        >
-                          <div className="text-[10px] font-mono uppercase tracking-[0.18em] text-neutral-500 mb-0.5">
-                            {m.label}
+                  return (
+                    <div
+                      key={proj.id}
+                      className={`w-[85vw] mr-[4vw] shrink-0 relative transition-opacity duration-300 ${
+                        isCurrent ? 'opacity-100' : 'opacity-45 hover:opacity-80'
+                      }`}
+                    >
+                      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-10 items-center pr-6 lg:pr-12 border-r border-white/[0.09]">
+                        {/* Left 8 Columns: Kicker, Title, Summary, Metrics, Tech Stack & Actions */}
+                        <div className="lg:col-span-8">
+                          <div className="flex flex-wrap items-center gap-3 mb-3">
+                            <span className="px-2 py-0.5 bg-white text-black text-[10px] font-mono font-bold uppercase tracking-[0.16em]">
+                              {proj.numeral} / 0{FLAGSHIP_PROJECTS.length}
+                            </span>
+                            <span className="text-[11px] font-mono uppercase tracking-[0.2em] text-neutral-400">
+                              {proj.kicker}
+                            </span>
                           </div>
-                          <div className="text-sm font-bold text-white truncate">
-                            {m.value}
+
+                          <h2 className="text-4xl lg:text-5xl xl:text-[64px] font-bold tracking-[-0.035em] leading-[1.03] mb-4 lg:mb-5">
+                            <span className="text-white">{proj.titleWhite} </span>
+                            <span className="text-[#8E9299]">{proj.titleMuted}</span>
+                          </h2>
+
+                          <p className="text-base lg:text-lg text-neutral-200 leading-relaxed max-w-3xl mb-5">
+                            {proj.summary}
+                          </p>
+
+                          {/* 3-Column Project Key Metrics Strip */}
+                          <div className="grid grid-cols-3 border border-white/12 bg-white/[0.02] mb-5 max-w-3xl">
+                            {proj.metrics.map((m) => (
+                              <div
+                                key={m.label}
+                                className="px-3.5 py-2.5 border-r last:border-r-0 border-white/10"
+                              >
+                                <div className="text-[9.5px] font-mono uppercase tracking-[0.16em] text-neutral-500 mb-0.5">
+                                  {m.label}
+                                </div>
+                                <div className="text-xs lg:text-sm font-bold text-white truncate">
+                                  {m.value}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+
+                          {/* Tech Stack Tags */}
+                          <div className="flex flex-wrap gap-1.5 lg:gap-2 mb-6 max-w-3xl">
+                            {proj.techStack.map((tech) => (
+                              <span
+                                key={tech}
+                                className="border border-white/12 bg-white/[0.025] px-2.5 py-1 text-[11px] font-mono text-neutral-200"
+                              >
+                                {tech}
+                              </span>
+                            ))}
+                          </div>
+
+                          {/* Action Buttons */}
+                          <div className="flex flex-wrap items-center gap-3.5">
+                            <button
+                              type="button"
+                              onClick={() => setCaseStudyProject(proj)}
+                              data-magnetic
+                              className="px-5 py-2.5 bg-white text-black text-xs font-mono font-bold uppercase tracking-[0.18em] hover:bg-neutral-200 transition-colors text-center whitespace-nowrap shrink-0"
+                            >
+                              INSPECT ARCHITECTURE →
+                            </button>
+
+                            {proj.liveUrl && (
+                              <a
+                                href={proj.liveUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                data-magnetic
+                                className="px-5 py-2.5 border border-white/25 text-white text-xs font-mono uppercase tracking-[0.18em] hover:bg-white hover:text-black transition-colors text-center whitespace-nowrap shrink-0"
+                              >
+                                {proj.liveLabel || 'LIVE DEPLOYMENT'} ↗
+                              </a>
+                            )}
+
+                            <button
+                              type="button"
+                              onClick={() => handleSelectProject(proj.id, 'waterfall')}
+                              data-magnetic
+                              className="px-4 py-2.5 border border-white/12 text-neutral-300 text-xs font-mono uppercase tracking-[0.18em] hover:border-white/35 hover:text-white transition-colors text-center whitespace-nowrap shrink-0"
+                            >
+                              QUERY WATERFALL ↓
+                            </button>
                           </div>
                         </div>
-                      ))}
+
+                        {/* Right 4 Columns: Giant Metallic Numeral + Next Slide Preview Indicator */}
+                        <div className="hidden lg:flex lg:col-span-4 flex-col items-end justify-center select-none">
+                          <div className="text-[165px] xl:text-[215px] font-bold tracking-[-0.06em] leading-[0.82] bg-gradient-to-b from-white via-neutral-400 to-transparent bg-clip-text text-transparent">
+                            {proj.numeral}
+                          </div>
+
+                          <div className="mt-5 flex items-center gap-2.5 pointer-events-auto">
+                            <button
+                              type="button"
+                              disabled={idx === 0}
+                              onClick={() => {
+                                const prevP = FLAGSHIP_PROJECTS[Math.max(0, idx - 1)];
+                                if (prevP) handleSelectProject(prevP.id, 'track');
+                              }}
+                              className="px-3 py-1.5 border border-white/15 text-[10.5px] font-mono uppercase tracking-[0.16em] text-neutral-300 hover:text-white hover:border-white/40 disabled:opacity-30 transition-all"
+                            >
+                              ← PREV
+                            </button>
+                            {nextProj ? (
+                              <button
+                                type="button"
+                                onClick={() => handleSelectProject(nextProj.id, 'track')}
+                                className="px-3.5 py-1.5 border border-white/25 bg-white/[0.04] text-[10.5px] font-mono uppercase tracking-[0.16em] text-white hover:bg-white hover:text-black transition-all"
+                              >
+                                NEXT: {nextProj.numeral} · {nextProj.titleWhite} →
+                              </button>
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={() => handleSelectProject(proj.id, 'waterfall')}
+                                className="px-3.5 py-1.5 border border-white/30 bg-white text-black font-bold text-[10.5px] font-mono uppercase tracking-[0.16em] hover:bg-neutral-200 transition-all"
+                              >
+                                CONTINUE TO WATERFALL ↓
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      </div>
                     </div>
-
-                    {/* Staggered Tech Stack Tags */}
-                    <div className="flex flex-wrap gap-2 mb-8 max-w-4xl">
-                      {activeProject.techStack.map((tech, tIdx) => (
-                        <motion.span
-                          key={tech}
-                          initial={{ opacity: 0, y: 8 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          transition={{
-                            duration: 0.26,
-                            delay: 0.05 + tIdx * 0.025,
-                            ease: EASE_OUT_EXPO,
-                          }}
-                          className="border border-white/12 bg-white/[0.025] px-3 py-1 text-xs font-mono text-neutral-200"
-                        >
-                          {tech}
-                        </motion.span>
-                      ))}
-                    </div>
-
-                    {/* Action Buttons */}
-                    <div className="flex flex-wrap items-center gap-4">
-                      <button
-                        type="button"
-                        onClick={() => setCaseStudyProject(activeProject)}
-                        data-magnetic
-                        className="px-6 py-3 bg-white text-black text-xs font-mono font-bold uppercase tracking-[0.18em] hover:bg-neutral-200 transition-colors text-center whitespace-nowrap shrink-0"
-                      >
-                        INSPECT ARCHITECTURE →
-                      </button>
-
-                      {activeProject.liveUrl && (
-                        <a
-                          href={activeProject.liveUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          data-magnetic
-                          className="px-6 py-3 border border-white/25 text-white text-xs font-mono uppercase tracking-[0.18em] hover:bg-white hover:text-black transition-colors text-center whitespace-nowrap shrink-0"
-                        >
-                          {activeProject.liveLabel || 'LIVE DEPLOYMENT'} ↗
-                        </a>
-                      )}
-
-                      <button
-                        type="button"
-                        onClick={() => handleSelectProject(activeProject.id, 'waterfall')}
-                        data-magnetic
-                        className="px-5 py-3 border border-white/12 text-neutral-300 text-xs font-mono uppercase tracking-[0.18em] hover:border-white/35 hover:text-white transition-colors text-center whitespace-nowrap shrink-0"
-                      >
-                        QUERY WATERFALL ↓
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Right 4 Columns (Desktop): Giant Metallic Numeral + Next/Prev Controls */}
-                  <div className="hidden lg:flex lg:col-span-4 flex-col items-end justify-center select-none">
-                    <motion.div
-                      key={`num-${activeProject.numeral}`}
-                      initial={{ opacity: 0, scale: 0.88, rotate: -3, y: 24 }}
-                      animate={{ opacity: 1, scale: 1, rotate: 0, y: 0 }}
-                      transition={{ duration: 0.52, ease: EASE_OUT_EXPO }}
-                      className="text-[190px] xl:text-[250px] font-bold tracking-[-0.06em] leading-[0.82] bg-gradient-to-b from-white via-neutral-400 to-transparent bg-clip-text text-transparent"
-                    >
-                      {activeProject.numeral}
-                    </motion.div>
-
-                    <div className="mt-6 flex items-center gap-3 pointer-events-auto">
-                      <button
-                        type="button"
-                        disabled={activeProjectIndex === 0}
-                        onClick={() => {
-                          const prevProj = FLAGSHIP_PROJECTS[Math.max(0, activeProjectIndex - 1)];
-                          if (prevProj) handleSelectProject(prevProj.id, 'track');
-                        }}
-                        className="px-3.5 py-1.5 border border-white/15 text-[11px] font-mono uppercase tracking-[0.16em] text-neutral-300 hover:text-white hover:border-white/40 disabled:opacity-30 transition-all"
-                      >
-                        ← PREV
-                      </button>
-                      <button
-                        type="button"
-                        disabled={activeProjectIndex === FLAGSHIP_PROJECTS.length - 1}
-                        onClick={() => {
-                          const nextProj =
-                            FLAGSHIP_PROJECTS[
-                              Math.min(FLAGSHIP_PROJECTS.length - 1, activeProjectIndex + 1)
-                            ];
-                          if (nextProj) handleSelectProject(nextProj.id, 'track');
-                        }}
-                        className="px-3.5 py-1.5 border border-white/15 text-[11px] font-mono uppercase tracking-[0.16em] text-neutral-300 hover:text-white hover:border-white/40 disabled:opacity-30 transition-all"
-                      >
-                        NEXT →
-                      </button>
-                    </div>
-                  </div>
-                </motion.div>
-              </AnimatePresence>
+                  );
+                })}
+              </div>
             </div>
 
-            {/* Full-Bleed Stippled Wave Horizon at Bottom of Pinned Stage */}
-            <div className="relative w-full">
-              <ParticleWaveHorizon className="h-[135px]" />
-              <div className="hidden md:block absolute left-[12%] top-1/2 -translate-y-1/2">
-                <ParticleEllipsoid width={220} height={110} glowIntensity={0.16} />
+            {/* Bottom Compact L -> I Scroll Telemetry Bar (Flush with Waterfall Below) */}
+            <div className="w-full px-8 lg:px-14 xl:px-20 pt-3 border-t border-white/[0.08] flex items-center justify-between text-[10px] font-mono uppercase tracking-[0.18em] text-neutral-400 shrink-0">
+              <div className="flex items-center gap-3">
+                <span className="text-white font-semibold">
+                  SIDE-SCROLL REEL ({activeProject.numeral} / 0{FLAGSHIP_PROJECTS.length})
+                </span>
+                <span className="text-neutral-600">·</span>
+                <span>
+                  {activeProjectIndex < FLAGSHIP_PROJECTS.length - 1
+                    ? `SCROLL DOWN TO SLIDE RIGHT TO 0${activeProjectIndex + 2} →`
+                    : 'FINAL PROJECT REACHED — SCROLL DOWN FOR ROUTE & QUERY WATERFALL ↓'}
+                </span>
+              </div>
+
+              <div className="flex items-center gap-2">
+                {FLAGSHIP_PROJECTS.map((p, idx) => (
+                  <button
+                    key={`rail-node-${p.id}`}
+                    type="button"
+                    onClick={() => handleSelectProject(p.id, 'track')}
+                    className={`h-1.5 transition-all duration-300 ${
+                      idx === activeProjectIndex
+                        ? 'w-8 bg-white'
+                        : idx < activeProjectIndex
+                        ? 'w-3 bg-white/45'
+                        : 'w-3 bg-white/15'
+                    }`}
+                    aria-label={`Jump to ${p.titleWhite}`}
+                  />
+                ))}
               </div>
             </div>
           </div>
@@ -1407,13 +1515,14 @@ export function EngineeringPortfolio({ onNavigateWithTransition }: EngineeringPo
 
         {/* =====================================================================
             SECTION 3B: THE INSTRUMENT — ENRICHED ROUTE & QUERY WATERFALL
+            • Flush below the Horizontal Project Reel with zero dead space
             • Live ASCII Telemetry Matrix Backdrop
             • Hover Blur Halo + Shared layoutId Gliding Selection Border
             • Structured Auth Layer, DB Engine, SQL Operation & Payload Data
         ===================================================================== */}
         <div
           id="waterfall"
-          className="w-full px-4 sm:px-8 lg:px-14 xl:px-20 pt-8 sm:pt-12 pb-16 sm:pb-32 relative z-10"
+          className="w-full px-4 sm:px-8 lg:px-14 xl:px-20 pt-5 sm:pt-8 pb-12 sm:pb-20 relative z-10"
         >
           {/* Top Controls Bar */}
           <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
@@ -1681,6 +1790,14 @@ export function EngineeringPortfolio({ onNavigateWithTransition }: EngineeringPo
                 </motion.div>
               )}
             </div>
+          </div>
+        </div>
+
+        {/* Stippled Wave Horizon Divider Below Waterfall (Transition into Experience) */}
+        <div className="relative w-full overflow-hidden">
+          <ParticleWaveHorizon className="h-[95px] sm:h-[120px]" />
+          <div className="hidden md:block absolute left-[12%] top-1/2 -translate-y-1/2">
+            <ParticleEllipsoid width={200} height={100} glowIntensity={0.15} />
           </div>
         </div>
       </section>
