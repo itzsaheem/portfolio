@@ -208,22 +208,23 @@ export function EngineeringPortfolio({ onNavigateWithTransition }: EngineeringPo
   );
 
   // Maps raw vertical scroll progress [0..1] inside #instrument into horizontal reel progress [0..1]
-  // with entry/exit holds and magnetic detents at each project stop (01, 02, 03, 04)
+  // with a deliberate 14% entrance hold at project 01 (preventing fast scrolls from blowing past the case study),
+  // a reduced side-scroll speed, magnetic detents at each project stop (01, 02, 03, 04), and exit hold
   const computeHorizontalProgress = useCallback((raw: number) => {
     const clamped = Math.max(0, Math.min(1, raw));
-    const entryHold = 0.06;
-    const exitHold = 0.92;
+    const entryHold = 0.14; // Substantial entrance hold so fast scrolling lands firmly on Project 01 Case Study
+    const exitHold = 0.94; // Stable hold on final project before releasing down to Waterfall
     if (clamped <= entryHold) return 0;
     if (clamped >= exitHold) return 1;
 
-    const t = (clamped - entryHold) / (exitHold - entryHold); // 0..1 across 3 horizontal transitions
+    const t = (clamped - entryHold) / (exitHold - entryHold); // 0..1 across 3 transitions
     const totalTransitions = FLAGSHIP_PROJECTS.length - 1; // 3
     const scaled = t * totalTransitions;
     const segIdx = Math.min(totalTransitions - 1, Math.floor(scaled));
     const segFrac = scaled - segIdx;
 
-    // Gentle magnetic detent plateau around each project stop
-    const plateau = 0.1;
+    // Smooth magnetic detent plateau around each project stop so user comfortably inspects each card
+    const plateau = 0.16;
     let easedFrac = 0;
     if (segFrac <= plateau) {
       easedFrac = 0;
@@ -1267,7 +1268,7 @@ export function EngineeringPortfolio({ onNavigateWithTransition }: EngineeringPo
         ------------------------------------------------------------------- */}
         <div
           ref={projectTrackRef}
-          className="hidden md:block relative w-full h-[320vh]"
+          className="hidden md:block relative w-full h-[440vh]"
         >
           <div className="sticky top-14 w-full h-[calc(100vh-3.5rem)] flex flex-col justify-between py-5 lg:py-7 overflow-hidden bg-black/95 border-b border-white/[0.08]">
             {/* Top Bar Inside Pinned Stage: Project Tabs + Horizontal Progress Rail */}
@@ -1767,20 +1768,48 @@ export function EngineeringPortfolio({ onNavigateWithTransition }: EngineeringPo
                   </div>
 
                   <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-6 items-start">
-                    <div className="lg:col-span-5">
-                      <div className="text-[9.5px] sm:text-[10px] font-mono uppercase tracking-[0.2em] text-neutral-500 mb-1">
-                        SELECTED ENDPOINT ({activeRoute.method})
+                    <div className="lg:col-span-5 space-y-4">
+                      <div>
+                        <div className="text-[9.5px] sm:text-[10px] font-mono uppercase tracking-[0.2em] text-neutral-500 mb-1">
+                          SELECTED ENDPOINT ({activeRoute.method})
+                        </div>
+                        <div className="text-xs sm:text-base font-mono text-white font-semibold mb-1 break-all">
+                          {activeRoute.path}
+                        </div>
+                        <p className="text-xs sm:text-sm text-neutral-300 leading-relaxed">
+                          {activeRoute.description}
+                        </p>
                       </div>
-                      <div className="text-xs sm:text-base font-mono text-white font-semibold mb-1 break-all">
-                        {activeRoute.path}
+
+                      {/* Employer Value & Architectural Rationale Highlights */}
+                      <div className="border border-white/10 bg-white/[0.015] p-3 space-y-2.5 font-mono">
+                        {activeRoute.architecturalDecision && (
+                          <div>
+                            <div className="text-[9px] uppercase tracking-[0.16em] text-neutral-400 font-bold mb-0.5">
+                              ARCHITECTURAL DECISION:
+                            </div>
+                            <div className="text-[11px] text-neutral-300 font-sans leading-relaxed">
+                              {activeRoute.architecturalDecision}
+                            </div>
+                          </div>
+                        )}
+                        {activeRoute.employerTakeaway && (
+                          <div className="pt-2 border-t border-white/[0.08]">
+                            <div className="text-[9px] uppercase tracking-[0.16em] text-neutral-300 font-bold mb-0.5 flex items-center gap-1.5">
+                              <span className="w-1.5 h-1.5 bg-white inline-block" />
+                              <span>WHAT THIS PROVES TO AN EMPLOYER:</span>
+                            </div>
+                            <div className="text-[11px] text-white font-sans font-medium leading-relaxed">
+                              {activeRoute.employerTakeaway}
+                            </div>
+                          </div>
+                        )}
                       </div>
-                      <p className="text-xs sm:text-sm text-neutral-300 leading-relaxed">
-                        {activeRoute.description}
-                      </p>
                     </div>
+
                     <div className="lg:col-span-7">
                       <div className="text-[9.5px] sm:text-[10px] font-mono uppercase tracking-[0.2em] text-neutral-500 mb-1.5">
-                        EXECUTION / SQL POLICY TRACE
+                        EXECUTION & SQL POLICY TRACE
                       </div>
                       <pre className="text-[11px] sm:text-xs font-mono text-neutral-200 bg-black/95 border border-white/[0.12] p-3.5 sm:p-4 overflow-x-auto whitespace-pre-wrap">
                         {activeRoute.sqlOrLogic}
