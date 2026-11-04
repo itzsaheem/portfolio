@@ -15,6 +15,7 @@ import {
   AsciiWaterfallBackdrop,
   DottedAuroraFooter,
 } from './ParticleInstruments';
+import { ThreeArchitecturePipeline } from './ThreeArchitecturePipeline';
 
 const EASE_OUT_EXPO: [number, number, number, number] = [0.16, 1, 0.3, 1];
 const SPRING_SNAPPY = { type: 'spring' as const, stiffness: 380, damping: 32, mass: 0.7 };
@@ -180,6 +181,7 @@ export function EngineeringPortfolio({ onNavigateWithTransition }: EngineeringPo
   const [selectedRouteIndex, setSelectedRouteIndex] = useState<number>(0);
   const [hoveredRouteIndex, setHoveredRouteIndex] = useState<number | null>(null);
   const [traceKey, setTraceKey] = useState<number>(0);
+  const [waterfallViewMode, setWaterfallViewMode] = useState<'3d' | 'list' | 'split'>('3d');
   const [expandedCapabilityId, setExpandedCapabilityId] = useState<string | null>('fullstack-web');
   const [activeDoor, setActiveDoor] = useState<number>(2);
   const [showStickyNav, setShowStickyNav] = useState<boolean>(false);
@@ -1533,7 +1535,44 @@ export function EngineeringPortfolio({ onNavigateWithTransition }: EngineeringPo
               />
             </div>
 
-            <div className="flex items-center gap-1.5 sm:gap-2.5">
+            <div className="flex flex-wrap items-center gap-1.5 sm:gap-2.5">
+              {/* View Mode Switcher: 3D PIPELINE | TRACE LIST | SPLIT */}
+              <div className="flex items-center border border-white/20 bg-black/90 p-0.5">
+                <button
+                  type="button"
+                  onClick={() => setWaterfallViewMode('3d')}
+                  className={`px-2.5 py-1 text-[9.5px] sm:text-[10px] font-mono uppercase tracking-[0.14em] transition-colors ${
+                    waterfallViewMode === '3d'
+                      ? 'bg-white text-black font-bold shadow-[0_0_12px_rgba(255,255,255,0.25)]'
+                      : 'text-neutral-400 hover:text-white'
+                  }`}
+                >
+                  3D PIPELINE
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setWaterfallViewMode('list')}
+                  className={`px-2.5 py-1 text-[9.5px] sm:text-[10px] font-mono uppercase tracking-[0.14em] transition-colors ${
+                    waterfallViewMode === 'list'
+                      ? 'bg-white text-black font-bold shadow-[0_0_12px_rgba(255,255,255,0.25)]'
+                      : 'text-neutral-400 hover:text-white'
+                  }`}
+                >
+                  TRACE LIST
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setWaterfallViewMode('split')}
+                  className={`px-2.5 py-1 text-[9.5px] sm:text-[10px] font-mono uppercase tracking-[0.14em] transition-colors ${
+                    waterfallViewMode === 'split'
+                      ? 'bg-white text-black font-bold shadow-[0_0_12px_rgba(255,255,255,0.25)]'
+                      : 'text-neutral-400 hover:text-white'
+                  }`}
+                >
+                  SPLIT
+                </button>
+              </div>
+
               {FLAGSHIP_PROJECTS.map((proj, idx) => (
                 <button
                   key={proj.id}
@@ -1581,145 +1620,189 @@ export function EngineeringPortfolio({ onNavigateWithTransition }: EngineeringPo
                   </span>
                 </div>
                 <span className="tracking-[0.12em] text-neutral-400">
-                  hover or tap any route for auth guard, db engine, sql & payload inspection
+                  {waterfallViewMode === '3d'
+                    ? '3D interactive pipeline: drag to rotate · click tier node to inspect SQL'
+                    : 'hover or tap any route for auth guard, db engine, sql & payload inspection'}
                 </span>
               </div>
 
-              {/* Enriched Route Cards (With Shared layoutId Selection Border & Hover Blur Halo) */}
-              <div className="space-y-3 font-mono">
-                {activeProject.waterfallRoutes.map((route, idx) => {
-                  const isSelected = idx === selectedRouteIndex;
-                  const isHovered = idx === hoveredRouteIndex;
+              {/* Interactive 3D Architecture Pipeline Visualizer (Three.js WebGL) */}
+              {(waterfallViewMode === '3d' || waterfallViewMode === 'split') && (
+                <div className="mb-6">
+                  <ThreeArchitecturePipeline
+                    project={activeProject}
+                    activeRoute={activeRoute}
+                    selectedRouteIndex={selectedRouteIndex}
+                    onSelectRoute={(idx) => {
+                      setSelectedRouteIndex(idx);
+                      setTraceKey((k) => k + 1);
+                    }}
+                  />
+                </div>
+              )}
 
-                  return (
-                    <motion.button
+              {/* If in 3D-only mode: render a sleek endpoint quick-switcher bar for high-efficiency navigation alongside node clicks */}
+              {waterfallViewMode === '3d' && (
+                <div className="flex flex-wrap items-center gap-2 mb-4 font-mono text-[10px]">
+                  <span className="text-neutral-500 uppercase tracking-[0.14em]">PIPELINE ROUTES:</span>
+                  {activeProject.waterfallRoutes.map((route, idx) => (
+                    <button
+                      key={route.path}
                       type="button"
-                      key={`${route.path}-${traceKey}`}
-                      onClick={() => setSelectedRouteIndex(idx)}
-                      onMouseEnter={() => setHoveredRouteIndex(idx)}
-                      onMouseLeave={() => setHoveredRouteIndex(null)}
-                      whileHover={{ y: -2 }}
-                      transition={{ duration: 0.18 }}
-                      data-magnetic
-                      className={`group relative w-full text-left p-3.5 sm:p-4 border overflow-hidden transition-colors duration-200 ${
-                        isSelected
-                          ? 'border-white/20 bg-white/[0.07]'
-                          : 'border-white/10 bg-black/70 hover:border-white/25 hover:bg-white/[0.04]'
+                      onClick={() => {
+                        setSelectedRouteIndex(idx);
+                        setTraceKey((k) => k + 1);
+                      }}
+                      className={`px-2.5 py-1 border transition-colors flex items-center gap-1.5 ${
+                        idx === selectedRouteIndex
+                          ? 'border-white bg-white text-black font-bold'
+                          : 'border-white/15 bg-black/60 text-neutral-400 hover:text-white hover:border-white/30'
                       }`}
                     >
-                      {/* Shared layoutId Gliding Active Selection Frame */}
-                      {isSelected && (
-                        <motion.div
-                          layoutId="active-waterfall-route"
-                          transition={SPRING_SNAPPY}
-                          className="pointer-events-none absolute inset-0 border border-white/60 shadow-[0_0_32px_rgba(255,255,255,0.12)] z-20"
-                        />
-                      )}
+                      <span className="text-[9px] opacity-75">{route.method}</span>
+                      <span>{route.path}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
 
-                      {/* Soft Radial Blur Halo on Hover or Active */}
-                      <div
-                        className={`pointer-events-none absolute -inset-4 z-0 transition-opacity duration-300 ${
-                          isHovered || isSelected ? 'opacity-100' : 'opacity-0'
+              {/* Enriched Route Cards (With Shared layoutId Selection Border & Hover Blur Halo) */}
+              {(waterfallViewMode === 'list' || waterfallViewMode === 'split') && (
+                <div className="space-y-3 font-mono">
+                  {activeProject.waterfallRoutes.map((route, idx) => {
+                    const isSelected = idx === selectedRouteIndex;
+                    const isHovered = idx === hoveredRouteIndex;
+
+                    return (
+                      <motion.button
+                        type="button"
+                        key={`${route.path}-${traceKey}`}
+                        onClick={() => setSelectedRouteIndex(idx)}
+                        onMouseEnter={() => setHoveredRouteIndex(idx)}
+                        onMouseLeave={() => setHoveredRouteIndex(null)}
+                        whileHover={{ y: -2 }}
+                        transition={{ duration: 0.18 }}
+                        data-magnetic
+                        className={`group relative w-full text-left p-3.5 sm:p-4 border overflow-hidden transition-colors duration-200 ${
+                          isSelected
+                            ? 'border-white/20 bg-white/[0.07]'
+                            : 'border-white/10 bg-black/70 hover:border-white/25 hover:bg-white/[0.04]'
                         }`}
-                        style={{
-                          background:
-                            'radial-gradient(280px circle at 50% 50%, rgba(255,255,255,0.14), rgba(255,255,255,0.03) 55%, transparent 80%)',
-                          filter: 'blur(20px)',
-                        }}
-                      />
-
-                      <div className="relative z-10">
-                        {/* Top Row: Method + Path + Operation + Payload/Status */}
-                        <div className="flex flex-wrap items-center justify-between gap-2 mb-2.5">
-                          <div className="flex items-center gap-2 sm:gap-3 min-w-0">
-                            <span
-                              className={`text-[10px] px-2 py-0.5 font-bold shrink-0 ${
-                                isSelected
-                                  ? 'bg-white text-black'
-                                  : 'bg-white/10 text-neutral-200 group-hover:bg-white/20'
-                              }`}
-                            >
-                              {route.method}
-                            </span>
-                            <span className="text-xs sm:text-sm font-bold text-white truncate">
-                              {route.path}
-                            </span>
-                            <span className="hidden md:inline-block text-[11px] font-sans text-neutral-400 truncate">
-                              — {route.description}
-                            </span>
-                          </div>
-
-                          <div className="flex items-center gap-2.5 text-[10px] sm:text-[11px] tabular-nums shrink-0">
-                            <span className="text-neutral-300 hidden sm:inline">
-                              {route.payload}
-                            </span>
-                            <span className="text-neutral-500 hidden sm:inline">·</span>
-                            <span className="text-neutral-300">{route.latencyMs}ms</span>
-                            <span className="text-[#4ADE80] font-semibold">
-                              {route.status} OK
-                            </span>
-                          </div>
-                        </div>
-
-                        {/* Middle Row: Waterfall Timing Bar with Continuous Data Packet Shimmer */}
-                        <div className="w-full h-2 sm:h-2.5 bg-white/[0.06] relative overflow-hidden mb-2.5">
+                      >
+                        {/* Shared layoutId Gliding Active Selection Frame */}
+                        {isSelected && (
                           <motion.div
-                            initial={{ left: '0%', width: '0%', opacity: 0.4 }}
-                            whileInView={{
-                              left: `${route.startPct}%`,
-                              width: `${route.widthPct}%`,
-                              opacity: 1,
-                            }}
-                            viewport={{ once: false, amount: 0.2 }}
-                            transition={{
-                              duration: 0.85,
-                              delay: idx * 0.06,
-                              ease: EASE_OUT_EXPO,
-                            }}
-                            className="absolute inset-y-0 bg-gradient-to-r from-neutral-500 via-neutral-200 to-white overflow-hidden"
-                          >
-                            <motion.div
-                              animate={{ x: ['-100%', '220%'] }}
-                              transition={{
-                                duration: 2.2,
-                                delay: idx * 0.15,
-                                repeat: Infinity,
-                                repeatDelay: 1.2,
-                                ease: 'easeInOut',
-                              }}
-                              className="w-1/2 h-full bg-gradient-to-r from-transparent via-white to-transparent opacity-90"
-                            />
-                          </motion.div>
-                        </div>
+                            layoutId="active-waterfall-route"
+                            transition={SPRING_SNAPPY}
+                            className="pointer-events-none absolute inset-0 border border-white/60 shadow-[0_0_32px_rgba(255,255,255,0.12)] z-20"
+                          />
+                        )}
 
-                        {/* Bottom Row: Structured Architectural Metadata (Auth, Engine, Operation, Payload) */}
-                        <div className="flex flex-wrap items-center justify-between gap-y-1.5 gap-x-4 text-[10px] sm:text-[11px] text-neutral-400">
-                          <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                            <span>
-                              <strong className="text-neutral-300 font-normal">Auth:</strong>{' '}
-                              {route.authLayer}
-                            </span>
-                            <span className="text-neutral-600">·</span>
-                            <span>
-                              <strong className="text-neutral-300 font-normal">Engine:</strong>{' '}
-                              {route.engine}
-                            </span>
-                            <span className="text-neutral-600 hidden sm:inline">·</span>
-                            <span className="hidden sm:inline">
-                              <strong className="text-neutral-300 font-normal">Op:</strong>{' '}
-                              {route.operation}
-                            </span>
+                        {/* Soft Radial Blur Halo on Hover or Active */}
+                        <div
+                          className={`pointer-events-none absolute -inset-4 z-0 transition-opacity duration-300 ${
+                            isHovered || isSelected ? 'opacity-100' : 'opacity-0'
+                          }`}
+                          style={{
+                            background:
+                              'radial-gradient(280px circle at 50% 50%, rgba(255,255,255,0.14), rgba(255,255,255,0.03) 55%, transparent 80%)',
+                            filter: 'blur(20px)',
+                          }}
+                        />
+
+                        <div className="relative z-10">
+                          {/* Top Row: Method + Path + Operation + Payload/Status */}
+                          <div className="flex flex-wrap items-center justify-between gap-2 mb-2.5">
+                            <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+                              <span
+                                className={`text-[10px] px-2 py-0.5 font-bold shrink-0 ${
+                                  isSelected
+                                    ? 'bg-white text-black'
+                                    : 'bg-white/10 text-neutral-200 group-hover:bg-white/20'
+                                }`}
+                              >
+                                {route.method}
+                              </span>
+                              <span className="text-xs sm:text-sm font-bold text-white truncate">
+                                {route.path}
+                              </span>
+                              <span className="hidden md:inline-block text-[11px] font-sans text-neutral-400 truncate">
+                                — {route.description}
+                              </span>
+                            </div>
+
+                            <div className="flex items-center gap-2.5 text-[10px] sm:text-[11px] tabular-nums shrink-0">
+                              <span className="text-neutral-300 hidden sm:inline">
+                                {route.payload}
+                              </span>
+                              <span className="text-neutral-500 hidden sm:inline">·</span>
+                              <span className="text-neutral-300">{route.latencyMs}ms</span>
+                              <span className="text-[#4ADE80] font-semibold">
+                                {route.status} OK
+                              </span>
+                            </div>
                           </div>
 
-                          <span className="text-[10px] text-neutral-300 group-hover:text-white transition-colors">
-                            {isSelected ? 'INSPECTING SQL ↓' : 'INSPECT →'}
-                          </span>
+                          {/* Middle Row: Waterfall Timing Bar with Continuous Data Packet Shimmer */}
+                          <div className="w-full h-2 sm:h-2.5 bg-white/[0.06] relative overflow-hidden mb-2.5">
+                            <motion.div
+                              initial={{ left: '0%', width: '0%', opacity: 0.4 }}
+                              whileInView={{
+                                left: `${route.startPct}%`,
+                                width: `${route.widthPct}%`,
+                                opacity: 1,
+                              }}
+                              viewport={{ once: false, amount: 0.2 }}
+                              transition={{
+                                duration: 0.85,
+                                delay: idx * 0.06,
+                                ease: EASE_OUT_EXPO,
+                              }}
+                              className="absolute inset-y-0 bg-gradient-to-r from-neutral-500 via-neutral-200 to-white overflow-hidden"
+                            >
+                              <motion.div
+                                animate={{ x: ['-100%', '220%'] }}
+                                transition={{
+                                  duration: 2.2,
+                                  delay: idx * 0.15,
+                                  repeat: Infinity,
+                                  repeatDelay: 1.2,
+                                  ease: 'easeInOut',
+                                }}
+                                className="w-1/2 h-full bg-gradient-to-r from-transparent via-white to-transparent opacity-90"
+                              />
+                            </motion.div>
+                          </div>
+
+                          {/* Bottom Row: Structured Architectural Metadata (Auth, Engine, Operation, Payload) */}
+                          <div className="flex flex-wrap items-center justify-between gap-y-1.5 gap-x-4 text-[10px] sm:text-[11px] text-neutral-400">
+                            <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                              <span>
+                                <strong className="text-neutral-300 font-normal">Auth:</strong>{' '}
+                                {route.authLayer}
+                              </span>
+                              <span className="text-neutral-600">·</span>
+                              <span>
+                                <strong className="text-neutral-300 font-normal">Engine:</strong>{' '}
+                                {route.engine}
+                              </span>
+                              <span className="text-neutral-600 hidden sm:inline">·</span>
+                              <span className="hidden sm:inline">
+                                <strong className="text-neutral-300 font-normal">Op:</strong>{' '}
+                                {route.operation}
+                              </span>
+                            </div>
+
+                            <span className="text-[10px] text-neutral-300 group-hover:text-white transition-colors">
+                              {isSelected ? 'INSPECTING SQL ↓' : 'INSPECT →'}
+                            </span>
+                          </div>
                         </div>
-                      </div>
-                    </motion.button>
-                  );
-                })}
-              </div>
+                      </motion.button>
+                    );
+                  })}
+                </div>
+              )}
 
               {/* Selected Route Architectural Breakdown & SQL / Execution Inspector */}
               {activeRoute && (
