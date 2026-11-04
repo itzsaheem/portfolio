@@ -91,14 +91,26 @@ export function WebGLTextHero({ onScrollToProjects, onNavigateToSection }: WebGL
       textCtx.clearRect(0, 0, width, height);
 
       const isMobile = width < 768;
-      const targetBlockHeight = height * (isMobile ? 0.38 : 0.44);
-      const fontSize = targetBlockHeight * 0.48;
-      const lineGap = fontSize * 0.94;
+      const targetBlockHeight = height * (isMobile ? 0.34 : 0.44);
+      let fontSize = targetBlockHeight * 0.48;
 
       textCtx.font = `normal ${fontSize}px ${CONFIG.fontFamily}`;
       if ('letterSpacing' in textCtx) {
         (textCtx as any).letterSpacing = '0.015em';
       }
+
+      // Ensure line1 and line2 fit comfortably within 88% of viewport width on any screen
+      const measuredW = Math.max(
+        textCtx.measureText(CONFIG.line1).width,
+        textCtx.measureText(CONFIG.line2).width
+      );
+      const maxAllowedWidth = width * (isMobile ? 0.88 : 0.9);
+      if (measuredW > maxAllowedWidth && measuredW > 0) {
+        fontSize = fontSize * (maxAllowedWidth / measuredW);
+        textCtx.font = `normal ${fontSize}px ${CONFIG.fontFamily}`;
+      }
+
+      const lineGap = fontSize * 0.94;
       textCtx.fillStyle = '#ffffff';
       textCtx.textAlign = 'center';
       textCtx.textBaseline = 'alphabetic';
