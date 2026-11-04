@@ -818,20 +818,7 @@ export function WebGLTextHero({ onScrollToProjects, onNavigateToSection }: WebGL
         )}
       </AnimatePresence>
 
-      {/* Awwwards-style Ribbon Badge on Right Hero Edge (Slowly fades in only AFTER name is formed) */}
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={isNameFormed ? { opacity: 1 } : { opacity: 0 }}
-        transition={{ duration: 1.35, delay: 0.3, ease: [0.22, 1, 0.36, 1] }}
-        className={`absolute right-0 top-1/2 -translate-y-1/2 z-30 hidden sm:flex flex-col items-center bg-[#84cfc8] text-white py-3 px-1.5 shadow-md rounded-l-md cursor-pointer hover:bg-[#68beb6] transition-colors ${
-          isNameFormed ? 'pointer-events-auto' : 'pointer-events-none'
-        }`}
-      >
-        <span className="font-bold text-xs tracking-tighter mb-1.5">W.</span>
-        <span className="text-[9px] font-bold tracking-widest uppercase [writing-mode:vertical-lr] rotate-180 opacity-90">
-          SIH '25
-        </span>
-      </motion.div>
+
 
       {/* 3. Center High-Density Fine-Particle Convergence & Disintegration Canvas */}
       <div className="absolute inset-0 w-full h-full z-10 flex items-center justify-center pointer-events-auto">
