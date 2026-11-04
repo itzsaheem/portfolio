@@ -534,7 +534,7 @@ export function WebGLTextHero({ onScrollToProjects, onNavigateToSection }: WebGL
       {/* 4. Bottom Intro Text & Reach Out Link */}
       <footer className="relative z-20 flex flex-col sm:flex-row justify-between items-start sm:items-end gap-6 w-full pointer-events-none">
         <p className="max-w-md font-sans text-xs sm:text-[13px] text-neutral-300 leading-relaxed font-medium pointer-events-auto">
-          Full-stack software engineer architecting scalable backend APIs, relational databases, and high-performance web applications. Interested in collaborating or reviewing my builds? Feel free to{' '}
+          Full-stack software engineer building across Java, Python, TypeScript, Node.js, and relational SQL databases. Experienced with scalable backend APIs, RLS data security, and high-performance web systems. Feel free to{' '}
           <button
             type="button"
             onClick={() =>
